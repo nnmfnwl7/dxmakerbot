@@ -98,7 +98,7 @@ def load_config_verify_or_exit():
         print('**** ERROR, <slidedynzoneignore> value <{0}> is invalid'.format(c.BOTslidedynzoneignore))
         error_num += 1
     
-    if c.BOTslidedynzonemax < 0 or c.BOTslidedynzonemax > 1:
+    if c.BOTslidedynzonemax <= 0 or c.BOTslidedynzonemax > 1:
         print('**** ERROR, <slidedynzonemax> value <{0}> is invalid'.format(c.BOTslidedynzonemax))
         error_num += 1
     
@@ -170,8 +170,8 @@ def load_config():
     parser.add_argument('--balancesavepercent', help='min taker balance you want to save and do not use for making orders specified by percent of maker+taker balance (default=0.05 means 5%%)', default=0.05)
 
     # arguments: dynamic values, special pump/dump order
-    parser.add_argument('--slidedynpositive', help='dynamic price slide increase positive, applied if maker price goes up, range between 0 and slidedynpositive, dynamically computed by assets ratio (default=0, 0.5 means maximum at +50%% of price)', default=0)
-    parser.add_argument('--slidedynnegative', help='dynamic price slide increase negative, applied if maker price goes down, range between 0 and slidedynnegative, dynamically computed by assets ratio (default=0, 0.1 means maximum at +10%% of price)', default=0)
+    parser.add_argument('--slidedynpositive', help='dynamic price slide increase positive, applied if maker price goes up, range between 0 and slidedynpositive, dynamically computed by assets ratio (default=0 disabled, 0.5 means maximum at +50%% of price)', default=0)
+    parser.add_argument('--slidedynnegative', help='dynamic price slide increase negative, applied if maker price goes down, range between 0 and slidedynnegative, dynamically computed by assets ratio (default=0 disabled, 0.1 means maximum at +10%% of price)', default=0)
     parser.add_argument('--slidedynzoneignore', help='dynamic price slide increase ignore is zone when dynamic slide is not activated(default=0.05 means 5%% of balance)', default=0.05)
     parser.add_argument('--slidedynzonemax', help='percentage when dynamic order price slide increase gonna reach maximum(default=0.9 means at 90%%)', default=0.9)
     parser.add_argument('--slidepump', help='if slide pump is non zero a special order out of slidemax is set, this order will be filled when pump happen(default=0 disabled, 0.5 means order will be placed +50%% out of maximum slide)', default=0)
