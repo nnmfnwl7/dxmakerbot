@@ -189,9 +189,9 @@ python3 dxmakerbot.py --maker SYS --taker LTC --sellmin 5 --sellmax 115 --slidem
 
 ### Maker Bot Usage Version V2
 
-### Use the following command to learn more about dxmakerbot usage
+### Use the following command to learn more about dxmakerbot version 2 usage
 ```
-python3 dxmakerbot.py -h
+python3 dxmakerbot_v2.py -h
 ```
 
 ### main configuration arguments
@@ -318,6 +318,6 @@ Flag           | Description
 
 Corresponding command for example situation no. 1:
 ```
-python3 dxmakerbot.py --maker BLOCK --makeraddress blck0123456789blck --taker LTC --takeraddress lite0123456789lite --sellstart 100 --sellend 10 --slidestart 1.22 --slideend 1.03 --maxopen 5 --reopenfinished 0 --balancesavenumber 2 --balancesavepercent 0 --slidedynpositive 0.0 --slidedynnegative 0.0 --slidedynzoneignore 0.05 --slidedynzonemax 0.9 --slidepump 0.38 --resetonpricechangepositive 0.03 --resetonpricechangenegative 0.08 --resetafterdelay 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600 --delayinternal 15 --delaycheckprice 120
+python3 dxmakerbot_v2.py --maker BLOCK --makeraddress blck0123456789blck --taker LTC --takeraddress lite0123456789lite --sellstart 100 --sellend 10 --slidestart 1.22 --slideend 1.03 --maxopen 5 --reopenfinished 0 --balancesavenumber 2 --balancesavepercent 0 --slidedynpositive 0.0 --slidedynnegative 0.0 --slidedynzoneignore 0.05 --slidedynzonemax 0.9 --slidepump 0.38 --resetonpricechangepositive 0.03 --resetonpricechangenegative 0.08 --resetafterdelay 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600 --delayinternal 15 --delaycheckprice 120
 ```
 
