@@ -144,16 +144,54 @@ customrequest3 = []
 	* At this stage it would be a good idea to test making/taking an order without using the bot to ensure everything is setup properly.
 1. Navigate to the *dxmakerbot* directory in the terminal.
 
-### Maker Bot Usage
+### Common Maker Bot Usage
 * Pricing is based off BTC-XXX market pairs. For example, if running on the LTC-DASH market, the bot pulls the price for BTC-LTC and BTC-DASH then automatically calculates LTC-DASH price. This is how it works for all supported pricing sources:
 	* Bittrex: default (no flag)
 	* CryptoBridge: `--usecb`
 	* CoinGecko: `--usecg`
 	* Custom pricing: `--usecustom`
 
-### Use the following command to learn more about dxmakerbot usage
+### Maker Bot Usage By Version:
+* [Maker Bot Usage Version V1](#maker-bot-usage-version-v1)
+* [Maker Bot Usage Version V2](#maker-bot-usage-version-v2)
+
+### Maker Bot Usage Version V1
+
+Use the following command format to start the bot:
 ```
-python3 dxmakerbot.py -h
+python3 dxmakerbot.py --maker [] --taker [] --sellmin [] --sellmax [] --slidemin [] --slidemax []
+```
+
+Flag            | Default       | Description
+----------------|---------------|------------
+--maker         | BLOCK         | Asset being sold
+--taker         | LTC           | Asset being bought
+--sellmin       | 0.001         | Min maker sell order size
+--sellmax       | 1             | Max maker sell order size
+--slidemin      | 1.000001      | Min order price multiplier: Min order price = slidemin * price source quote
+--slidemax      | 1.019999      | Max order price multiplier: Min order price = slidemax * price source quote
+--delay         | 3             | Sleep delay between loops to place/cancel orders (seconds)
+--maxloop       | 7             | Number of loops before canceling the oldest order
+--maxopen       | 5             | Max amount of orders to have open at any given time
+--minbalance    | 10            | Min balance you want to maintain of the asset being sold
+--usecb*        | *disabled*    | Use CryptoBridge prices (both assets must be listed on CryptoBridge)
+--usecg*        | *disabled*    | Use CoinGecko prices (both assets must be listed on CoinGecko)
+--usecustom*    | *disabled*    | Use custom price sources from *utils/dxsettings.py*
+--cancelall*    |               | Cancel all orders and exit program
+--cancelmarket* |               | Cancel all orders in a given market
+
+`*` = optional
+
+Example command:
+```
+python3 dxmakerbot.py --maker SYS --taker LTC --sellmin 5 --sellmax 115 --slidemin 1.00111 --slidemax 1.1111 --usecustom
+```
+
+### Maker Bot Usage Version V2
+
+### Use the following command to learn more about dxmakerbot version 2 usage
+```
+python3 dxmakerbot_v2.py -h
 ```
 
 ### main configuration arguments
@@ -280,5 +318,6 @@ Flag           | Description
 
 Corresponding command for example situation no. 1:
 ```
-python3 dxmakerbot.py --maker BLOCK --makeraddress blck0123456789blck --taker LTC --takeraddress lite0123456789lite --sellstart 100 --sellend 10 --slidestart 1.22 --slideend 1.03 --maxopen 5 --reopenfinished 0 --balancesavenumber 2 --balancesavepercent 0 --slidedynpositive 0.0 --slidedynnegative 0.0 --slidedynzoneignore 0.05 --slidedynzonemax 0.9 --slidepump 0.38 --resetonpricechangepositive 0.03 --resetonpricechangenegative 0.08 --resetafterdelay 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600 --delayinternal 15 --delaycheckprice 120
+python3 dxmakerbot_v2.py --maker BLOCK --makeraddress blck0123456789blck --taker LTC --takeraddress lite0123456789lite --sellstart 100 --sellend 10 --slidestart 1.22 --slideend 1.03 --maxopen 5 --reopenfinished 0 --balancesavenumber 2 --balancesavepercent 0 --slidedynpositive 0.0 --slidedynnegative 0.0 --slidedynzoneignore 0.05 --slidedynzonemax 0.9 --slidepump 0.38 --resetonpricechangepositive 0.03 --resetonpricechangenegative 0.08 --resetafterdelay 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600 --delayinternal 15 --delaycheckprice 120
 ```
+
