@@ -44,6 +44,7 @@ def load_config_verify_or_exit():
     
     error_num = 0
     
+    # arguments: main maker/taker
     if hasattr(c, 'BOTmakeraddress') == False:
         print('**** ERROR, <makeraddress> is not specified')
         error_num += 1
@@ -62,12 +63,26 @@ def load_config_verify_or_exit():
         error_num += 1
         
     if c.BOTslidestart <= 1:
-        print('**** ERROR, <slidestart> value <{0}> is invalid'.format(c.BOTslidestart))
+        print('**** ERROR, <slidestart> value <{0}> seems invalid. Values less than 1 means selling something under price.'.format(c.BOTslidestart))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
-            
+    
+    if c.BOTslidestart > 2:
+        print('**** ERROR, <slidestart> value <{0}> seems invalid. <1.01> means +1%, <1.10> means +10%, more than <2> means +100% of actual price'.format(c.BOTslidestart))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
+        if not c.imreallysurewhatimdoing:
+            error_num += 1
+    
     if c.BOTslideend <= 1:
-        print('**** ERROR, <slideend> value <{0}> is invalid'.format(c.BOTslideend))
+        print('**** ERROR, <slideend> value <{0}> seems invalid. Values less than 1 means selling something under price.'.format(c.BOTslidestart))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
+        if not c.imreallysurewhatimdoing:
+            error_num += 1
+    
+    if c.BOTslideend > 2:
+        print('**** ERROR, <slideend> value <{0}> seems invalid. <1.01> means +1%, <1.10> means +10%, more than <2> means +100% of actual price'.format(c.BOTslidestart))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
     
@@ -85,12 +100,14 @@ def load_config_verify_or_exit():
     
     # arguments: dynamic values, special pump/dump order
     if c.BOTslidedynpositive < 0:
-        print('**** ERROR, <slidedynpositive> value <{0}> is invalid'.format(c.BOTslidedynpositive))
+        print('**** ERROR, <slidedynpositive> value <{0}> seems invalid'.format(c.BOTslidedynpositive))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
             
     if c.BOTslidedynnegative < 0:
-        print('**** ERROR, <slidedynnegative> value <{0}> is invalid'.format(c.BOTslidedynnegative))
+        print('**** ERROR, <slidedynnegative> value <{0}> seems invalid'.format(c.BOTslidedynnegative))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
         
@@ -141,7 +158,7 @@ def load_config_verify_or_exit():
         error_num += 1
         
     if error_num > 0:
-        print('>>>> Verifying configuration failed')
+        print('>>>> Verifying configuration failed. In special cases you can try read help and use <imreallysurewhatimdoing> argument which allows you to specify meaningless configuration variables')
         sys.exit(1)
     else:
         print('>>>> Verifying configuration success')
@@ -153,40 +170,40 @@ def load_config():
     parser = argparse.ArgumentParser()
     
     # arguments: main maker/taker
-    parser.add_argument('--maker', help='asset being sold (default=BLOCK)', default='BLOCK')
-    parser.add_argument('--taker', help='asset being bought (default=LTC)', default='LTC')
-    parser.add_argument('--makeraddress', help='trading address of asset being sold (default=None)', default=None)
-    parser.add_argument('--takeraddress', help='trading address of asset being bought (default=None)', default=None)
+    parser.add_argument('--maker', type=str, help='asset being sold (default=BLOCK)', default='BLOCK')
+    parser.add_argument('--taker', type=str, help='asset being bought (default=LTC)', default='LTC')
+    parser.add_argument('--makeraddress', type=str, help='trading address of asset being sold (default=None)', default=None)
+    parser.add_argument('--takeraddress', type=str, help='trading address of asset being bought (default=None)', default=None)
 
     # arguments: basic values
-    parser.add_argument('--sellstart', help='size of first order or random from range sellstart and sellend (default=0.001)', default=0.001)
-    parser.add_argument('--sellend', help='size of last order or random from range sellstart and sellend  (default=0.001)', default=0.001)
+    parser.add_argument('--sellstart', type=float, help='size of first order or random from range sellstart and sellend (default=0.001)', default=0.001)
+    parser.add_argument('--sellend', type=float, help='size of last order or random from range sellstart and sellend  (default=0.001)', default=0.001)
     parser.add_argument('--sellrandom', help='orders size will be random number between sellstart and sellend, otherwise sequence of orders starting by sellstart amount and ending with sellend amount, ', action='store_true')
-    parser.add_argument('--slidestart', help='price of first order will be equal to slidestart * price source quote(default=1.01 means +1%%)', default=1.01)
-    parser.add_argument('--slideend', help='price of last order will be equal to slideend * price source quote(default=1.021 means +2.1%%)', default=1.021)
-    parser.add_argument('--maxopen', help='Max amount of orders to have open at any given time. Placing orders sequence: first placed order is at slidestart(price slide),sellstart(amount) up to slideend(price slide),sellend(amount), last order placed is slidepump if configured, is not counted into this number (default=5)', default=5)
-    parser.add_argument('--reopenfinished', help='reopen finished orders (default=1 means enabled)', default=1)
+    parser.add_argument('--slidestart', type=float, help='price of first order will be equal to slidestart * price source quote(default=1.01 means +1%%)', default=1.01)
+    parser.add_argument('--slideend', type=float, help='price of last order will be equal to slideend * price source quote(default=1.021 means +2.1%%)', default=1.021)
+    parser.add_argument('--maxopen', type=int, help='Max amount of orders to have open at any given time. Placing orders sequence: first placed order is at slidestart(price slide),sellstart(amount) up to slideend(price slide),sellend(amount), last order placed is slidepump if configured, is not counted into this number (default=5)', default=5)
+    parser.add_argument('--reopenfinished', type=bool, help='reopen finished orders (default=1 means enabled)', default=1)
     parser.add_argument('--balancesavenumber', help='min taker balance you want to save and do not use for making orders specified by number (default=0)', default=0)
     parser.add_argument('--balancesavepercent', help='min taker balance you want to save and do not use for making orders specified by percent of maker+taker balance (default=0.05 means 5%%)', default=0.05)
 
     # arguments: dynamic values, special pump/dump order
-    parser.add_argument('--slidedynpositive', help='dynamic price slide increase positive, applied if maker price goes up, range between 0 and slidedynpositive, dynamically computed by assets ratio (default=0 disabled, 0.5 means maximum at +50%% of price)', default=0)
-    parser.add_argument('--slidedynnegative', help='dynamic price slide increase negative, applied if maker price goes down, range between 0 and slidedynnegative, dynamically computed by assets ratio (default=0 disabled, 0.1 means maximum at +10%% of price)', default=0)
-    parser.add_argument('--slidedynzoneignore', help='dynamic price slide increase ignore is zone when dynamic slide is not activated(default=0.05 means 5%% of balance)', default=0.05)
-    parser.add_argument('--slidedynzonemax', help='percentage when dynamic order price slide increase gonna reach maximum(default=0.9 means at 90%%)', default=0.9)
-    parser.add_argument('--slidepump', help='if slide pump is non zero a special order out of slidemax is set, this order will be filled when pump happen(default=0 disabled, 0.5 means order will be placed +50%% out of maximum slide)', default=0)
-    parser.add_argument('--pumpamount', help='pump order size, otherwise sellend is used(default=--sellend)', default=0)
+    parser.add_argument('--slidedynpositive', type=float, help='dynamic price slide increase positive, applied if maker price goes up, range between 0 and slidedynpositive, dynamically computed by assets ratio (default=0 disabled, 0.5 means maximum at +50%% of price)', default=0)
+    parser.add_argument('--slidedynnegative', type=float, help='dynamic price slide increase negative, applied if maker price goes down, range between 0 and slidedynnegative, dynamically computed by assets ratio (default=0 disabled, 0.1 means maximum at +10%% of price)', default=0)
+    parser.add_argument('--slidedynzoneignore', type=float, help='dynamic price slide increase ignore is zone when dynamic slide is not activated(default=0.05 means 5%% of balance)', default=0.05)
+    parser.add_argument('--slidedynzonemax', type=float, help='percentage when dynamic order price slide increase gonna reach maximum(default=0.9 means at 90%%)', default=0.9)
+    parser.add_argument('--slidepump', type=float, help='if slide pump is non zero a special order out of slidemax is set, this order will be filled when pump happen(default=0 disabled, 0.5 means order will be placed +50%% out of maximum slide)', default=0)
+    parser.add_argument('--pumpamount', type=float, help='pump order size, otherwise sellend is used(default=--sellend)', default=0)
 
     # arguments: reset orders by events
-    parser.add_argument('--resetonpricechangepositive', help='percentual price positive change(you can buy more) when reset all orders (default=0, 0.05 means reset at +5%% change)', default=0)
-    parser.add_argument('--resetonpricechangenegative', help='percentual price negative change(you can buy less) when reset all orders (default=0, 0.05 means reset at -5%% change)', default=0)
-    parser.add_argument('--resetafterdelay', help='delay before resetting all orders in seconds (default=0 means disabled)', default=0)
-    parser.add_argument('--resetafterorderfinishnumber', help='number of orders to be finished before resetting orders (default=0 means not set)', default=0)
-    parser.add_argument('--resetafterorderfinishdelay', help='delay after finishing last order before resetting orders in seconds (default=0 not set)', default=0)
+    parser.add_argument('--resetonpricechangepositive', type=float, help='percentual price positive change(you can buy more) when reset all orders (default=0, 0.05 means reset at +5%% change)', default=0)
+    parser.add_argument('--resetonpricechangenegative', type=float, help='percentual price negative change(you can buy less) when reset all orders (default=0, 0.05 means reset at -5%% change)', default=0)
+    parser.add_argument('--resetafterdelay', type=int, help='keep resetting orders in specific number of seconds (default=0 means disabled)', default=0)
+    parser.add_argument('--resetafterorderfinishnumber', type=int, help='number of orders to be finished before resetting orders (default=0 means not set)', default=0)
+    parser.add_argument('--resetafterorderfinishdelay', type=int, help='delay after finishing last order before resetting orders in seconds (default=0 not set)', default=0)
 
     # arguments: internal values changes
-    parser.add_argument('--delayinternal', help='sleep delay, in seconds, between loops to place/cancel orders or other internal operations(can be used ie. case of bad internet connection...) (default=9)', default=9)
-    parser.add_argument('--delaycheckprice', help='sleep delay, in seconds to check again pricing (default=180)', default=180)
+    parser.add_argument('--delayinternal', type=int, help='sleep delay, in seconds, between loops to place/cancel orders or other internal operations(can be used ie. case of bad internet connection...) (default=9)', default=9)
+    parser.add_argument('--delaycheckprice', type=int, help='sleep delay, in seconds to check again pricing (default=180)', default=180)
 
     # arguments: pricing source arguments
     parser.add_argument('--usecb', help='enable cryptobridge pricing', action='store_true')
@@ -331,8 +348,8 @@ def update_pricing():
 def update_balances():
     global c, s, d
     balance_all = dxbottools.rpc_connection.dxGetTokenBalances()
-    d.balance_maker_left = float(balance_all[c.BOTsellmarket])
-    d.balance_taker = float(balance_all[c.BOTbuymarket])
+    d.balance_maker_left = dxbottools.get_token_balance(balance_all, c.BOTsellmarket)
+    d.balance_taker = dxbottools.get_token_balance(balance_all, c.BOTbuymarket)
     print('>>>> Actual balances: {} {} {} {}'.format(c.BOTsellmarket, d.balance_maker_left, c.BOTbuymarket, d.balance_taker))
 
 # custom dynamic spread(slide) computation

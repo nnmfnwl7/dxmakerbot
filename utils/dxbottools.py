@@ -114,6 +114,10 @@ def takeorder(id, fromaddr, toaddr):
     results = rpc_connection.dxTakeOrder(id, fromaddr, toaddr)
     return results
 
+# return float balance of specific token or return 0 of not exist
+def get_token_balance(balances, token_name):
+    return float(balances.get(token_name, 0))
+
 def showorders():
     print ('### Getting balances >>>')
     mybalances = rpc_connection.dxGetTokenBalances()
