@@ -13,8 +13,41 @@ logging.basicConfig(filename='botdebug.log',
                     format='%(asctime)s %(levelname)s - %(message)s',
                     datefmt='[%Y-%m-%d:%H:%M:%S]')
 
+########################################################################
+# for better understanding how are order statuses managed read:
+# https://api.blocknet.co/#status-codes
+#
+# new             >> New order, not yet broadcasted
+# open            >> Open order, waiting for taker
+# accepting       >> Taker accepting order
+# hold            >> Counterparties acknowledge each other
+# initialized     >> Counterparties agree on order
+# created         >> Swap process starting
+# commited        >> Swap finalized
+# finished        >> Order complete
+# expired         >> Order expired
+# offline         >> Maker or taker went offline
+# canceled        >> Order was canceled
+# invalid         >> Problem detected with the order
+# rolled back     >> Trade failed, funds being rolled back
+# rollback failed >> Funds unsuccessfully redeemed in failed trade
+#
+# order with statuses which are considered as open are in flow:
+#       ['open', 'accepting', 'hold', 'initialized', 'created', 'commited']
+#
+# order with statuses which are considered as finished are:
+#       ['finished']
+#
+# order with statuses which are considered by default to reopen are:
+#       ['clear', 'expired', 'offline', 'canceled', 'invalid', 'rolled back', 'rollback failed']
+#
+# order with statuses which are considered by default + option <reopenfinished> enabled to reopen are:
+#       ['clear', 'expired', 'offline', 'canceled', 'invalid', 'rolled back', 'rollback failed', 'finished']
+########################################################################
 # for better variables naming, understanding, finding and code management and autocomplete 
 # variables has been divided into 3 groups global config as c, global static as s, global dynamic as d
+########################################################################
+
 class GlobVars(): pass    
 #global config variables
 c = GlobVars()
@@ -23,21 +56,38 @@ s = GlobVars()
 #global dynamic variables
 d = GlobVars()
 
+# welcome message
 def start_welcome_message():
     global c, s, d
     print('>>>> Starting maker bot')
 
+#global variables initialization
 def global_vars_preconfig_init():
     global c, s, d
     print('>>>> Global variables initialization')
     d.price_maker = 0
+    d.boundary_price_maker = 0
+    d.boundary_price_maker_initial = 0
     d.ordersfinished = 0
     d.ordersfinishedtime = 0
+    
+    events_wait_reopenfinished_init()
+    
     d.custom_dynamic_spread = 0
     d.balance_maker_total = 0
     d.balance_maker_left = 0
     d.balance_taker = 0
 
+# reopen after finished number and reopen after finished delay features initialization
+def events_wait_reopenfinished_init():
+    global c, s, d
+    
+    d.orders_pending_to_reopen_opened = 0
+    d.orders_pending_to_reopen_finished = 0
+    d.orders_pending_to_reopen_finished_time = 0
+    
+    s.orders_pending_to_reopen_opened_statuses = ['open', 'accepting', 'hold', 'initialized', 'created', 'commited']
+    
 def load_config_verify_or_exit():
     global c, s, d
     print('>>>> Verifying configuration')
@@ -63,33 +113,81 @@ def load_config_verify_or_exit():
         error_num += 1
         
     if c.BOTslidestart <= 1:
-        print('**** ERROR, <slidestart> value <{0}> seems invalid. Values less than 1 means selling something under price.'.format(c.BOTslidestart))
-        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
+        print('**** WARNING, <slidestart> value <{0}> seems invalid. Values less than 1 means selling something under price.'.format(c.BOTslidestart))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
     
     if c.BOTslidestart > 2:
-        print('**** ERROR, <slidestart> value <{0}> seems invalid. <1.01> means +1%, <1.10> means +10%, more than <2> means +100% of actual price'.format(c.BOTslidestart))
-        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
+        print('**** WARNING, <slidestart> value <{0}> seems invalid. <1.01> means +1%, <1.10> means +10%, more than <2> means +100% of actual price'.format(c.BOTslidestart))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
     
     if c.BOTslideend <= 1:
-        print('**** ERROR, <slideend> value <{0}> seems invalid. Values less than 1 means selling something under price.'.format(c.BOTslidestart))
-        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
+        print('**** WARNING, <slideend> value <{0}> seems invalid. Values less than 1 means selling something under price.'.format(c.BOTslideend))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
     
     if c.BOTslideend > 2:
-        print('**** ERROR, <slideend> value <{0}> seems invalid. <1.01> means +1%, <1.10> means +10%, more than <2> means +100% of actual price'.format(c.BOTslidestart))
-        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
+        print('**** WARNING, <slideend> value <{0}> seems invalid. <1.01> means +1%, <1.10> means +10%, more than <2> means +100% of actual price'.format(c.BOTslideend))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
     
     if c.BOTmaxopenorders < 1:
         print('**** ERROR, <maxopen> value <{0}> is invalid'.format(c.BOTmaxopenorders))
         error_num += 1
-            
+    
+    if c.BOTreopenfinisheddelay < 0:
+        print('**** ERROR, <reopenfinisheddelay> value <{0}> is invalid'.format(c.BOTreopenfinisheddelay))
+        error_num += 1
+    
+    if c.BOTreopenfinishednum < 0:
+        print('**** ERROR, <reopenfinishednum> value <{0}> is invalid'.format(c.BOTreopenfinishednum))
+        error_num += 1
+    
+    if c.BOTreopenfinishednum > c.BOTmaxopenorders:
+        print('**** ERROR, <reopenfinishednum> can not be more than <maxopenorders> value <{0}>/<{1}> is invalid'.format(c.BOTreopenfinishednum, c.BOTmaxopenorders))
+        error_num += 1
+    
+    if c.BOTboundary_max_relative != 0:
+        if c.BOTboundary_max_relative < 0:
+            print('**** ERROR, <boundary_max_relative> value <{0}> is invalid. For example value <1.12> means bot will work up to price relative to +12% of price when bot started'.format(c.BOTboundary_max_relative))
+            error_num += 1
+        elif c.BOTboundary_max_relative < 1:
+            print('**** WARNING, <boundary_max_relative> value <{0}> is invalid. For example value <1.12> means bot will work up to price relative to +12% of price when bot started'.format(c.BOTboundary_max_relative))
+            print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
+            if not c.imreallysurewhatimdoing:
+                error_num += 1
+    
+    if c.BOTboundary_min_relative != 0:
+        if c.BOTboundary_min_relative < 0:
+            print('**** ERROR, <boundary_min_relative> value <{0}> is invalid. For example value <0.8> means bot will work at least of 0.8 of price, which is -20% of price when bot started'.format(c.BOTboundary_min_relative))
+            error_num += 1
+        elif c.BOTboundary_min_relative > 1:
+            print('**** WARNING, <boundary_min_relative> value <{0}> seems invalid. For example value <0.8> means bot will work at least of 0.8 of price, which is -20% of price when bot started'.format(c.BOTboundary_min_relative))
+            print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
+            if not c.imreallysurewhatimdoing:
+                error_num += 1
+    
+    if c.BOTboundary_max_relative < c.BOTboundary_min_relative:
+        print('**** ERROR, <boundary_max_relative> value <{0}> can not be less than <boundary_min_relative> value <{1}>.'.format(c.BOTboundary_max_relative, c.BOTboundary_min_relative))
+        error_num += 1
+    
+    if c.BOTboundary_max_static < 0:
+        print('**** ERROR, <boundary_max_static> value <{0}> is invalid. For example value <100> means bot will sell maker for price maximum of 100 takers by one maker'.format(c.BOTboundary_max_static))
+        error_num += 1
+    
+    if c.BOTboundary_min_static < 0:
+        print('**** ERROR, <boundary_min_static> value <{0}> is invalid. For example value <10> means bot will sell maker for minimum price 10 takers by one maker'.format(c.BOTboundary_min_static))
+        error_num += 1
+    
+    if c.BOTboundary_max_static < c.BOTboundary_min_static:
+        print('**** ERROR, <boundary_max_static> value <{0}> can not be less than <boundary_min_static> value <{1}>.'.format(c.BOTboundary_max_static, c.BOTboundary_min_static))
+        error_num += 1
+    
     if c.BOTbalancesavenumber < 0:
         print('**** ERROR, <balancesavenumber> value <{0}> is invalid'.format(c.BOTbalancesavenumber))
         error_num += 1
@@ -100,14 +198,14 @@ def load_config_verify_or_exit():
     
     # arguments: dynamic values, special pump/dump order
     if c.BOTslidedynpositive < 0:
-        print('**** ERROR, <slidedynpositive> value <{0}> seems invalid'.format(c.BOTslidedynpositive))
-        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
+        print('**** WARNING, <slidedynpositive> value <{0}> seems invalid'.format(c.BOTslidedynpositive))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
             
     if c.BOTslidedynnegative < 0:
-        print('**** ERROR, <slidedynnegative> value <{0}> seems invalid'.format(c.BOTslidedynnegative))
-        print('++++ HINT, If you are really sure about what you are doing, you can ignore this error by using --imreallysurewhatimdoing argument')
+        print('**** WARNING, <slidedynnegative> value <{0}> seems invalid'.format(c.BOTslidedynnegative))
+        print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
         
@@ -174,15 +272,32 @@ def load_config():
     parser.add_argument('--taker', type=str, help='asset being bought (default=LTC)', default='LTC')
     parser.add_argument('--makeraddress', type=str, help='trading address of asset being sold (default=None)', default=None)
     parser.add_argument('--takeraddress', type=str, help='trading address of asset being bought (default=None)', default=None)
-
+    # ~ parser.add_argument('--makeraddressonly', type=bool, help='limit making orders to maker address only, otherwise all addresses are used', action='store_true') # (TODO)
+    
     # arguments: basic values
+    # ~ parser.add_argument('--selltype', type=float, choices=range(-1, 1), default=c.BOTselltype, help='<float> number between -1 and 1. -1 means maximum exponential to 0 means normal to 1 means maxium logarithmic (default=0 normal)') # (TODO)
     parser.add_argument('--sellstart', type=float, help='size of first order or random from range sellstart and sellend (default=0.001)', default=0.001)
     parser.add_argument('--sellend', type=float, help='size of last order or random from range sellstart and sellend  (default=0.001)', default=0.001)
     parser.add_argument('--sellrandom', help='orders size will be random number between sellstart and sellend, otherwise sequence of orders starting by sellstart amount and ending with sellend amount, ', action='store_true')
     parser.add_argument('--slidestart', type=float, help='price of first order will be equal to slidestart * price source quote(default=1.01 means +1%%)', default=1.01)
     parser.add_argument('--slideend', type=float, help='price of last order will be equal to slideend * price source quote(default=1.021 means +2.1%%)', default=1.021)
     parser.add_argument('--maxopen', type=int, help='Max amount of orders to have open at any given time. Placing orders sequence: first placed order is at slidestart(price slide),sellstart(amount) up to slideend(price slide),sellend(amount), last order placed is slidepump if configured, is not counted into this number (default=5)', default=5)
-    parser.add_argument('--reopenfinished', type=bool, help='reopen finished orders (default=1 means enabled)', default=1)
+    parser.add_argument('--reopenfinisheddelay', type=int, help='finished orders will be reopened after specific delay of last filled order(default=0 means disabled)', default=0)
+    parser.add_argument('--reopenfinishednum', type=int, help='finished orders will be reopened after specific number of filled orders(default=0 means disabled)', default=0)
+    
+    # arguments: boundaries configuration
+    parser.add_argument('--boundary_asset_maker', type=str, help='boundary measurement asset, for example BTC (default= --maker)', default=None)
+    parser.add_argument('--boundary_asset_taker', type=str, help='boundary measurement asset, for example asset_maker is BTC and boundary_asset_taker is USDT, so boundary min max can be 5000-9000 (default= --taker)', default=None)
+    parser.add_argument('--boundary_max_relative', type=float, help='maximum acceptable price of maker(sold one) where bot will stop selling, price is relative to price when bot started,i.e.: Start price:100, config value:3, so bot will sell up to 100*3 = 300 price, (default=0 disabled)', default=0)
+    parser.add_argument('--boundary_min_relative', type=float, help='minimum acceptable price of maker(sold one) where bot will stop selling, price is relative to price when bot started,i.e.: Start price:100, config value:0.8, so bot will sell at least for 100*0.8 = 80 price, (default=0 disabled)', default=0)
+    parser.add_argument('--boundary_max_static', type=float, help='maximum acceptable price of maker(sold one) where bot will stop selling(default=0 disabled)', default=0)
+    parser.add_argument('--boundary_min_static', type=float, help='minimum acceptable price of maker(sold one) where bot will stop selling(default=0 disabled)', default=0)
+    
+    parser.add_argument('--boundary_max_nocancel', help='do not cancel orders, default is to cancel orders', action='store_true')
+    parser.add_argument('--boundary_max_noexit', help='wait instead of exit program, default is to exit program', action='store_true')
+    parser.add_argument('--boundary_min_nocancel', help='do not cancel orders, default is to cancel orders', action='store_true')
+    parser.add_argument('--boundary_min_noexit', help='wait instead of exit program, default is to exit program', action='store_true')
+    
     parser.add_argument('--balancesavenumber', help='min taker balance you want to save and do not use for making orders specified by number (default=0)', default=0)
     parser.add_argument('--balancesavepercent', help='min taker balance you want to save and do not use for making orders specified by percent of maker+taker balance (default=0.05 means 5%%)', default=0.05)
 
@@ -202,7 +317,7 @@ def load_config():
     parser.add_argument('--resetafterorderfinishdelay', type=int, help='delay after finishing last order before resetting orders in seconds (default=0 not set)', default=0)
 
     # arguments: internal values changes
-    parser.add_argument('--delayinternal', type=int, help='sleep delay, in seconds, between loops to place/cancel orders or other internal operations(can be used ie. case of bad internet connection...) (default=9)', default=9)
+    parser.add_argument('--delayinternal', type=int, help='sleep delay, in seconds, between loops to place/cancel orders or other internal operations(can be used ie. case of bad internet connection...) (default=3)', default=3)
     parser.add_argument('--delaycheckprice', type=int, help='sleep delay, in seconds to check again pricing (default=180)', default=180)
 
     # arguments: pricing source arguments
@@ -223,17 +338,40 @@ def load_config():
     c.BOTsellmarket = args.maker.upper()
     c.BOTbuymarket = args.taker.upper()
     
+    # try to autoselect maker/taker address from config file
     if c.BOTsellmarket in dxsettings.tradingaddress:
         c.BOTmakeraddress = dxsettings.tradingaddress[c.BOTsellmarket]
-        
+    
     if c.BOTbuymarket in dxsettings.tradingaddress:
         c.BOTtakeraddress = dxsettings.tradingaddress[c.BOTbuymarket]
     
+    # try to autoselect maker/taker address from program arguments
     if args.makeraddress:
         c.BOTmakeraddress = args.makeraddress
         
     if args.takeraddress:
         c.BOTtakeraddress = args.takeraddress
+    
+    if args.boundary_asset_maker:
+        c.BOTboundary_asset_maker = args.boundary_asset_maker
+    else:
+        c.BOTboundary_asset_maker = c.BOTsellmarket
+        
+    if args.boundary_asset_taker:
+        c.BOTboundary_asset_taker = args.boundary_asset_taker
+    else:
+        c.BOTboundary_asset_taker = c.BOTbuymarket
+    
+    c.BOTboundary_max_relative = args.boundary_max_relative
+    c.BOTboundary_min_relative = args.boundary_min_relative
+    
+    c.BOTboundary_max_static = args.boundary_max_static
+    c.BOTboundary_min_static = args.boundary_min_static
+    
+    c.BOTboundary_max_nocancel = args.boundary_max_nocancel
+    c.BOTboundary_max_noexit = args.boundary_max_noexit
+    c.BOTboundary_min_nocancel = args.boundary_min_nocancel
+    c.BOTboundary_min_noexit = args.boundary_min_noexit
     
     # arguments: basic values
     c.BOTsellrandom = args.sellrandom
@@ -245,8 +383,13 @@ def load_config():
     c.BOTslidemin = min(c.BOTslidestart, c.BOTslideend)
     c.BOTslidemax = max(c.BOTslidestart, c.BOTslideend)
     c.BOTmaxopenorders = int(args.maxopen)
-    c.BOTreopenfinished = int(args.reopenfinished)
-        
+    c.BOTreopenfinisheddelay = int(args.reopenfinisheddelay)
+    c.BOTreopenfinishednum = int(args.reopenfinishednum)
+    if c.BOTreopenfinishednum > 0 or c.BOTreopenfinisheddelay > 0:
+        c.BOTreopenfinished = 1
+    else:
+        c.BOTreopenfinished = 0
+    
     c.BOTbalancesavenumber = float(args.balancesavenumber)
     c.BOTbalancesavepercent = float(args.balancesavepercent)
 
@@ -306,6 +449,13 @@ def global_vars_postconfig_init():
         d.ordersvirtual[i]['status'] = 'canceled'
         d.ordersvirtual[i]['id'] = 0
 
+def do_utils_cancel_market():
+    global c, s, d
+    print('>>>> Using utility to cancel {0}-{1} orders and exit'.format(c.BOTsellmarket, c.BOTbuymarket))
+    results = dxbottools.cancelallordersbymarket(c.BOTsellmarket, c.BOTbuymarket)
+    print('>>>> Cancel orders result: {0}'.format(results))
+    return results
+
 # do utils and exit
 def do_utils_and_exit():
     global c, s, d
@@ -315,12 +465,32 @@ def do_utils_and_exit():
         print(results)
         sys.exit(0)
     elif c.cancelmarket:
-        print('>>>> Utility to cancell {0}-{1} orders was specified and exit'.format(c.BOTsellmarket, c.BOTbuymarket))
-        results = dxbottools.cancelallordersbymarket(c.BOTsellmarket, c.BOTbuymarket)
+        do_utils_cancel_market()
         sys.exit(0)
 
+# get pricing information
+def pricing_get(maker__item_to_sell, taker__payed_by, previous_price):
+    global c, s, d
+    print('>>>> Updating pricing information for items to sell {0} payed by {1}'.format(maker__item_to_sell, taker__payed_by))
+    
+    maker_price_in_takers = pricebot.getpricedata(maker__item_to_sell, taker__payed_by, c.BOTuse)
+    print('>>>> pricing information for {0} {1} previous {2} actual {3}'.format(maker__item_to_sell, taker__payed_by, previous_price, maker_price_in_takers))
+    
+    return maker_price_in_takers
+
+# try to update pricing information
+def pricing_update_main():
+    global c, s, d
+    
+    price_maker = pricing_get(c.BOTsellmarket, c.BOTbuymarket, d.price_maker)
+    
+    if price_maker != 0:
+        d.price_maker = price_maker
+    
+    return price_maker
+
 # check if pricing works or exit        
-def check_pricing_works_exit():
+def pricing_check_works_exit():
     global c, s, d
     print('>>>> Checking pricing information for {0} {1}'.format(c.BOTsellmarket, c.BOTbuymarket))
     
@@ -328,23 +498,38 @@ def check_pricing_works_exit():
         print('ERROR: Maker and taker asset cannot be the same')
         sys.exit(0)
         
-    price_maker = update_pricing()
+    price_maker = pricing_update_main()
     if price_maker == 0:
         print('#### Pricing not available')
         sys.exit(1)
 
-# try to update pricing information
-def update_pricing():
+# relative boundaries can be specified as relative to maker taker market so price must be checked separately
+def pricing_update_boundaries():
     global c, s, d
-    print('>>>> Updating pricing information for {0} {1}'.format(c.BOTsellmarket, c.BOTbuymarket))
+    maker_price = 0
     
-    price_maker = pricebot.getpricedata(c.BOTsellmarket, c.BOTbuymarket, c.BOTuse)
-    print('>>>> pricing information for {0} {1} previous {2} actual {3}'.format(c.BOTsellmarket, c.BOTbuymarket, d.price_maker, price_maker))
-    if price_maker != 0:
-        d.price_maker = price_maker
+    if c.BOTboundary_asset_maker == c.BOTsellmarket and c.BOTboundary_asset_taker == c.BOTbuymarket:
+        maker_price = d.price_maker
+    else:
+        maker_price = pricing_get(c.BOTboundary_asset_maker, c.BOTboundary_asset_taker, d.boundary_price_maker)
     
-    return price_maker
+    if maker_price != 0:
+        d.boundary_price_maker = maker_price
+    
+    return maker_price
 
+# initial get pricing for relative boundaries
+def pricing_update_boundaries_relative_initial():
+    global c, s, d
+    
+    while True:
+        d.boundary_price_maker_initial = pricing_update_boundaries()
+        if d.boundary_price_maker_initial != 0:
+            break
+        print('#### Pricing boundaries once not available... waiting to restore...')
+        time.sleep(c.BOTdelayinternal)
+
+# update actual balanced of maker and taker
 def update_balances():
     global c, s, d
     balance_all = dxbottools.rpc_connection.dxGetTokenBalances()
@@ -436,6 +621,7 @@ def virtual_orders_clear():
         
     # wait for orders which are in progress state (TODO)
 
+# search for item that contains named item that contains specific data
 def lookup_universal(lookup_data, lookup_name, lookup_id):
     # find my orders, returns order if orderid passed is inside myorders
     for zz in lookup_data:
@@ -457,16 +643,38 @@ def virtual_orders_check_finished():
             order = lookup_order_id_2(d.ordersvirtual[i]['id'], ordersopen)
             print('>>>> Order <{0}> status original <{1}> to actual <{2}>'.format(d.ordersvirtual[i]['id'], d.ordersvirtual[i]['status'], (order['status'] if order else 'no status') ))
             
-            # if previous status was not finished and now finished is, count this order as finished
+            # if previous status was not finished and now finished is, count this order in finished number
             if d.ordersvirtual[i]['status'] != 'finished' and order and order['status'] == 'finished':
                 d.ordersfinished += 1
                 d.ordersfinishedtime = time.time()
+            
+            events_wait_reopenfinished_update(d.ordersvirtual[i], order)
+            
             # update virtual order status
             if order:
                 d.ordersvirtual[i]['status'] = order['status']
             else:
                 d.ordersvirtual[i]['status'] = 'clear'
+
+# update information needed by reopen after finish feature to know how many orders are opened and how many finished
+def events_wait_reopenfinished_update(virtual_order, actual_order):
+    global c, s, d
+    
+    # if previous status was not open and now open is, count this order in opened number
+    if virtual_order['status'] not in s.orders_pending_to_reopen_opened_statuses and actual_order and actual_order['status'] in s.orders_pending_to_reopen_opened_statuses:
+        d.orders_pending_to_reopen_opened += 1
         
+    # if previous status was open and now is not open, do not count this order in opened number
+    if virtual_order['status'] in s.orders_pending_to_reopen_opened_statuses and (not actual_order or actual_order['status'] not in s.orders_pending_to_reopen_opened_statuses):
+        d.orders_pending_to_reopen_opened -= 1
+        
+    # if previous status was not finished and now finished is, count this order in finished number
+    if virtual_order['status'] != 'finished' and actual_order and actual_order['status'] == 'finished':
+        d.orders_pending_to_reopen_finished += 1
+        d.orders_pending_to_reopen_finished_time = time.time()
+    
+    print('%%%% DEBUG orders opened {0} orders finished {1} last time order finished {2}'.format(d.orders_pending_to_reopen_opened, d.orders_pending_to_reopen_finished, d.orders_pending_to_reopen_finished_time))
+
 # create order and update also corresponding virtual-order
 def virtual_orders_create_one(order_id, order_name, price, slide, stageredslide, dynslide, sell_amount):
     global c, s, d
@@ -488,6 +696,7 @@ def virtual_orders_create_one(order_id, order_name, price, slide, stageredslide,
     
     if results:
         d.ordersvirtual[order_id] = results
+        d.ordersvirtual[order_id]['status'] = 'creating'
 
 # recompute order tx fee (TODO)
 def sell_amount_with_txfee_recompute(sell_amount):
@@ -521,7 +730,7 @@ def virtual_orders_prepare_once():
     update_balances()
     d.balance_maker_total = d.balance_maker_left
     
-    while update_pricing() == 0:
+    while pricing_update_main() == 0:
         print('#### Pricing not available... waiting to restore...')
         time.sleep(c.BOTdelayinternal)
     
@@ -546,20 +755,125 @@ def virtual_orders_prepare_recheck():
     # every loop of creating or checking orders maker price can be changed...
     if c.BOTdelaycheckprice > 0 and (time.time() - d.time_start_update_pricing) > c.BOTdelaycheckprice:
         d.time_start_update_pricing = time.time()
-        while update_pricing() == 0:
-            print('#### Pricing not available... waiting to restore...')
+        while pricing_update_main() == 0:
+            print('#### Pricing main not available... waiting to restore...')
             time.sleep(c.BOTdelayinternal)
+            
+        while pricing_update_boundaries() == 0:
+            print('#### Pricing boundaries not available... waiting to restore...')
+            time.sleep(c.BOTdelayinternal)
+    
+    events_wait_reopenfinished_reset_detect()
     
     # get open orders, match them with virtual orders, and check how many finished
     virtual_orders_check_finished()
 
+# function to check if price is not out of maximum boundary 
+def events_boundary_max():
+    global c, s, d
+    
+    # check if relative max boundary is configured
+    if c.BOTboundary_max_relative != 0:
+        # wait if out of price relative boundary happen
+        if (d.boundary_price_maker_initial * c.BOTboundary_max_relative) < d.boundary_price_maker:
+            print('>>>> Maximum relative boundary {0} hit {1} / {2}'.format(c.BOTboundary_max_relative, (d.boundary_price_maker_initial * c.BOTboundary_max_relative), d.boundary_price_maker))
+            if not c.BOTboundary_max_nocancel:
+                virtual_orders_clear()
+            return True
+            
+    # check if static max boundary is configured
+    if c.BOTboundary_max_static != 0:
+        # wait if out of price static boundary happen
+        if c.BOTboundary_max_static < d.boundary_price_maker:
+            print('>>>> Maximum static boundary hit {0} / {1}'.format(c.BOTboundary_max_static, d.boundary_price_maker))
+            if not c.BOTboundary_max_nocancel:
+                virtual_orders_clear()
+            return True
+    
+    return False
+
+# function to check if price is not out of minimum boundary 
+def events_boundary_min():
+    global c, s, d
+    
+    # check if relative min boundary is configured
+    if c.BOTboundary_min_relative != 0:
+        # wait if out of price relative boundary happen
+        if (d.boundary_price_maker_initial * c.BOTboundary_min_relative) > d.boundary_price_maker:
+            print('>>>> Minimum relative boundary {0} hit {1} / {2}'.format(c.BOTboundary_min_relative, (d.boundary_price_maker_initial * c.BOTboundary_min_relative), d.boundary_price_maker))
+            if not c.BOTboundary_min_nocancel:
+                virtual_orders_clear()
+            return True
+    
+    # check if static min boundary is configured
+    if c.BOTboundary_min_static != 0:
+        # wait if out of price static boundary happen
+        if c.BOTboundary_min_static > d.boundary_price_maker:
+            print('>>>> Minimum static boundary hit {0} / {1}'.format(c.BOTboundary_min_static, d.boundary_price_maker))
+            if not c.BOTboundary_min_nocancel:
+                virtual_orders_clear()
+            return True
+    
+    return False
+
+# function to check if price is not out of maximum boundary 
+def events_boundary_max_exit():
+    global c, s, d
+    
+    if not c.BOTboundary_max_noexit:
+        if events_boundary_max() == True:
+            return True
+            
+    return False
+
+# function to check if price is not out of minimum boundary 
+def events_boundary_min_exit():
+    global c, s, d
+    
+    if not c.BOTboundary_min_noexit:
+        if events_boundary_min() == True:
+            return True
+    
+    return False
+
+# function to check if price is not out of maximum boundary 
+def events_boundary_max_noexit():
+    global c, s, d
+    
+    if c.BOTboundary_max_noexit:
+        if events_boundary_max() == True:
+            return True
+            
+    return False
+
+# function to check if price is not out of minimum boundary 
+def events_boundary_min_noexit():
+    global c, s, d
+    
+    if c.BOTboundary_min_noexit:
+        if events_boundary_min() == True:
+            return True
+    
+    return False
+
+# function to scan all events that makes bot to exit
 def events_exit_bot():
     global c, s, d
+    ret = False
     
     print('checking for exit bot events')
     
-    return False
+    # detect and handle max boundary event
+    if events_boundary_max_exit() == True:
+        ret = True
     
+    # detect and handle min boundary event
+    if events_boundary_min_exit() == True:
+        ret = True
+    
+    return ret
+    
+# function to scan all events that makes bot to reset orders
 def events_reset_orders():
     global c, s, d
     
@@ -591,18 +905,112 @@ def events_reset_orders():
         return True
         
     return False
+
+# automatically detect passed wait events so reset data
+def events_wait_reopenfinished_reset_detect():
+    global c, s, d
     
+    if events_wait_reopenfinished_check_num_silent() == "reached" or events_wait_reopenfinished_check_delay_silent() == "reached":
+        print(">>>> reopen after finished reseting data...")
+        d.orders_pending_to_reopen_finished = 0
+        d.orders_pending_to_reopen_finished_time = 0;
+
+# function to check bot have to wait, finished orders will be reopened after specific number of filled orders
+def events_wait_reopenfinished_check_num_silent():
+    global c, s, d
+    
+    # check if finished num is co configured
+    if c.BOTreopenfinishednum == 0:
+        return "disabled"
+    
+    # this feature is activated only if at least one order has finished
+    if d.orders_pending_to_reopen_finished > 0:
+        # this feature is activated only if there is enough finished+open orders
+        if (d.orders_pending_to_reopen_finished + d.orders_pending_to_reopen_opened) >= c.BOTreopenfinishednum:
+            # wait if finished number has not been reached
+            if d.orders_pending_to_reopen_finished < c.BOTreopenfinishednum:
+                return "wait"
+            else:
+                return "reached"
+                
+    return "not ready"
+
+# function to check bot have to wait, finished orders will be reopened after specific number of filled orders
+def events_wait_reopenfinished_check_num():
+    global c, s, d
+    ret = events_wait_reopenfinished_check_num_silent()
+    if ret == "wait":
+        print('%%%% DEBUG Reopen finished order num {0} / {1} not reached, waiting...'.format(d.orders_pending_to_reopen_finished, c.BOTreopenfinishednum))
+    
+    return ret
+    
+# function to check bot have to wait, finished orders will be reopened after specific delay
+def events_wait_reopenfinished_check_delay_silent():
+    global c, s, d
+    
+    # check if finished delay is configured
+    if c.BOTreopenfinisheddelay == 0:
+        return "disabled"
+    
+    # this feature is activated only if at least one order has finished
+    if d.orders_pending_to_reopen_finished_time != 0:
+        # wait if we already have some finished order time and delay not reached
+        if (time.time() - d.orders_pending_to_reopen_finished_time) < c.BOTreopenfinisheddelay:
+            return "wait"
+        else:
+            return "reached"
+    
+    return "not ready"
+
+# function to check bot have to wait, finished orders will be reopened after specific delay
+def events_wait_reopenfinished_check_delay():
+    global c, s, d
+    ret = events_wait_reopenfinished_check_delay_silent()
+    if ret == "wait":
+        print('%%%% DEBUG Reopen finished orders delay {0} / {1} not reached, waiting...'.format((time.time() - d.orders_pending_to_reopen_finished_time), c.BOTreopenfinisheddelay))
+        
+    return ret
+
+# main reopen fisnihed delay/num detection function
+def events_wait_reopenfinished_check():
+    global c, s, d
+    
+    # check reopen after finished number or delay detection
+    ret_delay = events_wait_reopenfinished_check_delay()
+    ret_num = events_wait_reopenfinished_check_num()
+    if ret_delay == "wait" and ret_num == "wait": # timeout did not happen but number of finished orders has been reached
+        return True
+    elif ret_delay == "disabled" and ret_num == "wait":
+        return True
+    elif ret_delay == "wait" and ret_num == "disabled":
+        return True
+
+# function to scan all events that makes bot wait
 def events_wait():
     global c, s, d
+    ret = False
     
     print('checking for wait events')
     
-    # if there is NOT enough balance to place order and pay fee, do some sleep
+    # wait if there is not enough balance to place order and pay fee
     if balance_save_is_ok() == False:
-        return True
-        
-    return False
+        ret = True
+    
+    # check reopen after finished number or delay detection
+    if events_wait_reopenfinished_check() == True:
+        ret = True
+    
+    # detect and handle max boundary event
+    if events_boundary_max_noexit() == True:
+        ret = True
+    
+    # detect and handle min boundary event
+    if events_boundary_min_noexit() == True:
+        ret = True
+    
+    return ret
 
+# function to compute and return amount of maker to be sold
 def sell_amount_recompute(sell_start, sell_end, order_num_all, order_num_actual):
     global c, s, d
     
@@ -622,7 +1030,8 @@ def sell_amount_recompute(sell_start, sell_end, order_num_all, order_num_actual)
     sell_amount = float('%.6f' % sell_amount)
     
     return sell_amount
-    
+
+# function to loop all virtual orders and recreate em if needed
 def virtual_orders_handle():
     global c, s, d
     
@@ -682,9 +1091,11 @@ if __name__ == '__main__':
     
     do_utils_and_exit() # if some utility are planned do them and exit program
     
-    check_pricing_works_exit() # check if pricing works
+    pricing_check_works_exit() # check if pricing works
     
     update_balances() # update balances information
+    
+    pricing_update_boundaries_relative_initial() # one time price init for relative boundaries checking
     
     while 1:  # primary loop, starting point, after reset-orders-events
         
