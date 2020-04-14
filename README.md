@@ -204,18 +204,19 @@ Flag            | Description
 --takeraddress  | trading address of asset being bought (default=None)
 
 ### basic configuration arguments
-----------------------------------
-Flag                 | Description
----------------------|------------
---sellstart          | size of first order or random from range sellstart and sellend (default=0.001)
---sellend            | size of last order or random from range sellstart and sellend  (default=0.001)
---sellrandom         | orders size will be random number between sellstart and sellend, otherwise orders size sequence starting by sellstart amount and ending with sellend amount
---slidestart         | price of first order will be equal to slidestart * price source quote(default=1.01 means +1%)
---slideend           | price of last order will be equal to slideend * price source quote(default=1.021 means +2.1%)
---maxopen            | Max amount of orders to have open at any given time. Placing orders sequence: first placed order is at slidestart(price slide),sellstart(amount) up to slideend(price slide),sellend(amount), last order placed is slidepump if configured, is not counted into this number (default=5)
---reopenfinished     | reopen finished orders (default=1 means enabled)
---balancesavenumber  | min taker balance you want to save and do not use for making orders specified by number (default=0)
---balancesavepercent | min taker balance you want to save and do not use for making orders specified by percent of maker+taker balance (default=0.05 means 5%)
+-----------------------------------
+Flag                  | Description
+----------------------|------------
+--sellstart           | size of first order or random from range sellstart and sellend (default=0.001)
+--sellend             | size of last order or random from range sellstart and sellend  (default=0.001)
+--sellrandom          | orders size will be random number between sellstart and sellend, otherwise orders size sequence starting by sellstart amount and ending with sellend amount
+--slidestart          | price of first order will be equal to slidestart * price source quote(default=1.01 means +1%)
+--slideend            | price of last order will be equal to slideend * price source quote(default=1.021 means +2.1%)
+--maxopen             | Max amount of orders to have open at any given time. Placing orders sequence: first placed order is at slidestart(price slide),sellstart(amount) up to slideend(price slide),sellend(amount), last order placed is slidepump if configured, is not counted into this number (default=5)
+--reopenfinishednum   | reopen finished orders after specific number of filled orders(default=0 means disabled)
+--reopenfinisheddelay | reopen finished orders after specific delay of last filled order(default=0 means disabled)
+--balancesavenumber   | min taker balance you want to save and do not use for making orders specified by number (default=0)
+--balancesavepercent  | min taker balance you want to save and do not use for making orders specified by percent of maker+taker balance (default=0.05 means 5%)
 
 ### advanced configuration arguments - dynamic values, special pump/dump order
 ----------------------------------
@@ -227,6 +228,21 @@ Flag                 | Description
 --slidedynzonemax    | percentage when dynamic order price slide increase gonna reach maximum(default=0.9 means at 90%)
 --slidepump          | if slide pump is non zero a special order out of slidemax is set, this order will be filled when pump happen(default=0, 0.5 means order will be placed +50% out of maximum slide)
 --pumpamount         | pump order size, otherwise sellend is used(default=--sellend)
+
+### boundary limits, exit/wait cancel/nocancel orders configuration arguments
+-------------------------------------
+Flag                    | Description
+------------------------|------------
+--boundary_asset_maker  | boundary measurement asset, for example BTC (default= --maker)', default=None)
+--boundary_asset_taker  | boundary measurement asset, for example asset_maker is BTC and boundary_asset_taker is USDT, so boundary min max can be 5000-9000 (default= --taker)
+--boundary_max_relative | maximum acceptable price of maker payed by taker which bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:3, so bot will work up to 100*3 = 300 price, (default=0 disabled)
+--boundary_min_relative | minimum acceptable price of maker payed by taker which bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:0.8, so bot will sell at least for 100*0.8 = 80 price, (default=0 disabled)
+--boundary_max_static   | maximum acceptable price which bot will work with(default=0 disabled)
+--boundary_min_static   | minimum acceptable price which bot will work with(default=0 disabled)
+--boundary_max_nocancel | do not cancel orders, default is to cancel orders (default cancel orders)
+--boundary_max_noexit   | wait instead of exit program, default is to exit program (default exit bot)
+--boundary_min_nocancel | do not cancel orders, default is to cancel orders (default cancel orders)
+--boundary_min_noexit   | wait instead of exit program, default is to exit program (default exit bot)
 
 ### reset orders configuration arguments
 -------------------------------------------
@@ -292,7 +308,7 @@ Flag           | Description
 - Let say, user rather wait for 2 staggered orders to be finished than reopen low price one order
 - Let say, but if not multiple orders will finish at time of 10 minutes, all orders goes to reset
 ```
---reopenfinished 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600
+--reopenfinishednum 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600
 ```
 
 - Let say, user always wants to have some little 2 blocknets save on his wallet
@@ -318,6 +334,6 @@ Flag           | Description
 
 Corresponding command for example situation no. 1:
 ```
-python3 dxmakerbot_v2.py --maker BLOCK --makeraddress blck0123456789blck --taker LTC --takeraddress lite0123456789lite --sellstart 100 --sellend 10 --slidestart 1.22 --slideend 1.03 --maxopen 5 --reopenfinished 0 --balancesavenumber 2 --balancesavepercent 0 --slidedynpositive 0.0 --slidedynnegative 0.0 --slidedynzoneignore 0.05 --slidedynzonemax 0.9 --slidepump 0.38 --resetonpricechangepositive 0.03 --resetonpricechangenegative 0.08 --resetafterdelay 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600 --delayinternal 15 --delaycheckprice 120
+python3 dxmakerbot_v2.py --maker BLOCK --makeraddress blck0123456789blck --taker LTC --takeraddress lite0123456789lite --sellstart 100 --sellend 10 --slidestart 1.22 --slideend 1.03 --maxopen 5 --reopenfinishednum 0 --balancesavenumber 2 --balancesavepercent 0 --slidedynpositive 0.0 --slidedynnegative 0.0 --slidedynzoneignore 0.05 --slidedynzonemax 0.9 --slidepump 0.38 --resetonpricechangepositive 0.03 --resetonpricechangenegative 0.08 --resetafterdelay 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600 --delayinternal 15 --delaycheckprice 120
 ```
 
