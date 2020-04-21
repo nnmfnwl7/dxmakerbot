@@ -82,12 +82,18 @@ def global_vars_preconfig_init():
 def events_wait_reopenfinished_init():
     global c, s, d
     
+    s.orders_pending_to_reopen_opened_statuses = ['open', 'accepting', 'hold', 'initialized', 'created', 'commited']
+    
+    events_wait_reopenfinished_reinit()
+
+# reopen after finished number and reopen after finished delay features re-initialization
+def events_wait_reopenfinished_reinit():
+    global c, s, d
+    
     d.orders_pending_to_reopen_opened = 0
     d.orders_pending_to_reopen_finished = 0
     d.orders_pending_to_reopen_finished_time = 0
-    
-    s.orders_pending_to_reopen_opened_statuses = ['open', 'accepting', 'hold', 'initialized', 'created', 'commited']
-    
+
 def load_config_verify_or_exit():
     global c, s, d
     print('>>>> Verifying configuration')
@@ -346,13 +352,13 @@ def load_config():
         c.BOTtakeraddress = dxsettings.tradingaddress[c.BOTbuymarket]
     
     # try to autoselect maker/taker address from program arguments
-    if args.makeraddress:
+    if args.makeraddress is not None:
         c.BOTmakeraddress = args.makeraddress
         
-    if args.takeraddress:
+    if args.takeraddress is not None:
         c.BOTtakeraddress = args.takeraddress
     
-    if args.boundary_asset_maker:
+    if args.boundary_asset_maker is not None:
         c.BOTboundary_asset_maker = args.boundary_asset_maker
     else:
         c.BOTboundary_asset_maker = c.BOTsellmarket
@@ -496,7 +502,7 @@ def pricing_check_works_exit():
     
     if c.BOTsellmarket == c.BOTbuymarket:
         print('ERROR: Maker and taker asset cannot be the same')
-        sys.exit(0)
+        sys.exit(1)
         
     price_maker = pricing_update_main()
     if price_maker == 0:
@@ -592,7 +598,7 @@ def update_custom_dynamic_spread():
     print('>>>> custom_dynamic_spread updated {0}'.format(d.custom_dynamic_spread))
     return d.custom_dynamic_spread
 
-# clear and wait for all virtual-orders and corresponding orders be cleared
+# virtual-orders cancel, clear and wait for process done
 def virtual_orders_clear():
     global c, s, d
     print('>>>> Clearing all session virtual orders and waiting for be done...')
@@ -600,6 +606,14 @@ def virtual_orders_clear():
     # mark all virtual orders as cleared
     for i in range(s.ordersvirtualmax):
         d.ordersvirtual[i]['status'] = 'clear'
+    
+    virtual_orders_cancel()
+
+# virtual-orders cancel and wait for process done
+def virtual_orders_cancel():
+    global c, s, d
+    print('>>>> Canceling all session virtual orders and waiting for be done...')
+    
     # loop while some orders are opened otherwise break while, do not cancel orders which are in progress
     while 1:
         clearing = int(0)
@@ -613,6 +627,7 @@ def virtual_orders_clear():
                     print('>>>> Clearing virtual order index <{0}> id <{1}> and waiting for be done...'.format(i, z['id']))
                     dxbottools.rpc_connection.dxCancelOrder(z['id'])
                     clearing += 1
+                    break
         if clearing > 0:
             print('>>>> Sleeping waiting for old orders to be cleared')
             time.sleep(c.BOTdelayinternal)
@@ -620,7 +635,7 @@ def virtual_orders_clear():
             break
         
     # wait for orders which are in progress state (TODO)
-
+    
 # search for item that contains named item that contains specific data
 def lookup_universal(lookup_data, lookup_name, lookup_id):
     # find my orders, returns order if orderid passed is inside myorders
@@ -632,7 +647,7 @@ def lookup_order_id_2(orderid, myorders):
     return lookup_universal(myorders, 'id', orderid)
 
 # check all virtual-orders if there is some finished  
-def virtual_orders_check_finished():
+def virtual_orders_check_status_update_status():
     global c, s, d
     print('>>>> Checking all session virtual orders how many orders finished and last time when order was finished...')
     
@@ -641,17 +656,17 @@ def virtual_orders_check_finished():
         if d.ordersvirtual[i]['id'] != 0:
             # check how many virtual open orders finished
             order = lookup_order_id_2(d.ordersvirtual[i]['id'], ordersopen)
-            print('>>>> Order <{0}> status original <{1}> to actual <{2}>'.format(d.ordersvirtual[i]['id'], d.ordersvirtual[i]['status'], (order['status'] if order else 'no status') ))
+            print('>>>> Order <{0}> status original <{1}> to actual <{2}>'.format(d.ordersvirtual[i]['id'], d.ordersvirtual[i]['status'], (order['status'] if (order is not None) else 'no status') ))
             
             # if previous status was not finished and now finished is, count this order in finished number
-            if d.ordersvirtual[i]['status'] != 'finished' and order and order['status'] == 'finished':
+            if d.ordersvirtual[i]['status'] != 'finished' and (order is not None) and order['status'] == 'finished':
                 d.ordersfinished += 1
                 d.ordersfinishedtime = time.time()
             
             events_wait_reopenfinished_update(d.ordersvirtual[i], order)
             
             # update virtual order status
-            if order:
+            if order is not None:
                 d.ordersvirtual[i]['status'] = order['status']
             else:
                 d.ordersvirtual[i]['status'] = 'clear'
@@ -661,15 +676,21 @@ def events_wait_reopenfinished_update(virtual_order, actual_order):
     global c, s, d
     
     # if previous status was not open and now open is, count this order in opened number
-    if virtual_order['status'] not in s.orders_pending_to_reopen_opened_statuses and actual_order and actual_order['status'] in s.orders_pending_to_reopen_opened_statuses:
+    if virtual_order['status'] not in s.orders_pending_to_reopen_opened_statuses and (actual_order is not None) and actual_order['status'] in s.orders_pending_to_reopen_opened_statuses:
         d.orders_pending_to_reopen_opened += 1
+        if d.orders_pending_to_reopen_opened > c.BOTmaxopenorders:
+            print('!!!! internal BUG Detected. DEBUG orders opened {0} orders finished {1} last time order finished {2}'.format(d.orders_pending_to_reopen_opened, d.orders_pending_to_reopen_finished, d.orders_pending_to_reopen_finished_time))
+            sys.exit(1)
         
     # if previous status was open and now is not open, do not count this order in opened number
-    if virtual_order['status'] in s.orders_pending_to_reopen_opened_statuses and (not actual_order or actual_order['status'] not in s.orders_pending_to_reopen_opened_statuses):
+    if virtual_order['status'] in s.orders_pending_to_reopen_opened_statuses and ((actual_order is None) or actual_order['status'] not in s.orders_pending_to_reopen_opened_statuses):
         d.orders_pending_to_reopen_opened -= 1
+        if d.orders_pending_to_reopen_opened < 0:
+            print('!!!! internal BUG Detected. DEBUG orders opened {0} orders finished {1} last time order finished {2}'.format(d.orders_pending_to_reopen_opened, d.orders_pending_to_reopen_finished, d.orders_pending_to_reopen_finished_time))
+            sys.exit(1)
         
     # if previous status was not finished and now finished is, count this order in finished number
-    if virtual_order['status'] != 'finished' and actual_order and actual_order['status'] == 'finished':
+    if virtual_order['status'] != 'finished' and (actual_order is not None) and actual_order['status'] == 'finished':
         d.orders_pending_to_reopen_finished += 1
         d.orders_pending_to_reopen_finished_time = time.time()
     
@@ -745,6 +766,8 @@ def virtual_orders_prepare_once():
     d.ordersfinishedtime = 0
     
     d.time_start_update_pricing = time.time()
+    
+    events_wait_reopenfinished_reinit()
 
 # every time main event loop pass, some dynamics should be recomputed
 def virtual_orders_prepare_recheck():
@@ -766,7 +789,7 @@ def virtual_orders_prepare_recheck():
     events_wait_reopenfinished_reset_detect()
     
     # get open orders, match them with virtual orders, and check how many finished
-    virtual_orders_check_finished()
+    virtual_orders_check_status_update_status()
 
 # function to check if price is not out of maximum boundary 
 def events_boundary_max():
@@ -778,7 +801,7 @@ def events_boundary_max():
         if (d.boundary_price_maker_initial * c.BOTboundary_max_relative) < d.boundary_price_maker:
             print('>>>> Maximum relative boundary {0} hit {1} / {2}'.format(c.BOTboundary_max_relative, (d.boundary_price_maker_initial * c.BOTboundary_max_relative), d.boundary_price_maker))
             if not c.BOTboundary_max_nocancel:
-                virtual_orders_clear()
+                virtual_orders_cancel()
             return True
             
     # check if static max boundary is configured
@@ -787,7 +810,7 @@ def events_boundary_max():
         if c.BOTboundary_max_static < d.boundary_price_maker:
             print('>>>> Maximum static boundary hit {0} / {1}'.format(c.BOTboundary_max_static, d.boundary_price_maker))
             if not c.BOTboundary_max_nocancel:
-                virtual_orders_clear()
+                virtual_orders_cancel()
             return True
     
     return False
@@ -802,7 +825,7 @@ def events_boundary_min():
         if (d.boundary_price_maker_initial * c.BOTboundary_min_relative) > d.boundary_price_maker:
             print('>>>> Minimum relative boundary {0} hit {1} / {2}'.format(c.BOTboundary_min_relative, (d.boundary_price_maker_initial * c.BOTboundary_min_relative), d.boundary_price_maker))
             if not c.BOTboundary_min_nocancel:
-                virtual_orders_clear()
+                virtual_orders_cancel()
             return True
     
     # check if static min boundary is configured
@@ -811,7 +834,7 @@ def events_boundary_min():
         if c.BOTboundary_min_static > d.boundary_price_maker:
             print('>>>> Minimum static boundary hit {0} / {1}'.format(c.BOTboundary_min_static, d.boundary_price_maker))
             if not c.BOTboundary_min_nocancel:
-                virtual_orders_clear()
+                virtual_orders_cancel()
             return True
     
     return False
@@ -919,7 +942,7 @@ def events_wait_reopenfinished_reset_detect():
 def events_wait_reopenfinished_check_num_silent():
     global c, s, d
     
-    # check if finished num is co configured
+    # check if finished num is configured
     if c.BOTreopenfinishednum == 0:
         return "disabled"
     
