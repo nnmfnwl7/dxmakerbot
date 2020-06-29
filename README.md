@@ -208,7 +208,9 @@ Flag            | Description
 Flag                  | Description
 ----------------------|------------
 --sellstart           | size of first order or random from range sellstart and sellend (default=0.001)
+--sellstartmin        | minimum acceptable size of first order. If this is configured and there is not enough balance to create first order at <sellstart> size, order will be created at maximum possible size between <sellstart> and <sellstartmin>. (default=0 disabled)
 --sellend             | size of last order or random from range sellstart and sellend  (default=0.001)
+--sellendmin          | minimum acceptable size of last order. If this is configured and there is not enough balance to create last order at <sellend> size, order will be created at maximum possible size between <sellend> and <sellendmin>. (default=0 disabled)
 --sellrandom          | orders size will be random number between sellstart and sellend, otherwise orders size sequence starting by sellstart amount and ending with sellend amount
 --slidestart          | price of first order will be equal to slidestart * price source quote(default=1.01 means +1%)
 --slideend            | price of last order will be equal to slideend * price source quote(default=1.021 means +2.1%)
@@ -218,10 +220,18 @@ Flag                  | Description
 --balancesavenumber   | min taker balance you want to save and do not use for making orders specified by number (default=0)
 --balancesavepercent  | min taker balance you want to save and do not use for making orders specified by percent of maker+taker balance (default=0.05 means 5%)
 
+### takerbot configuration arguments
+----------------------------------
+Flag                 | Description
+---------------------|------------
+--takerbot           | keep checking for possible partial orders which meets requirements(size, price) and accept that orders.(default=0 disabled) For more details please read dxmakerbot --help
+
 ### advanced configuration arguments - dynamic values, special pump/dump order
 ----------------------------------
 Flag                 | Description
 ---------------------|------------
+--slidedyntype       | maker*price:taker ratio when dynamic slide intensity is 0. Or static value in maker when dynamic slide intensity is 0 (default=ratio). For more details please read dxmakerbot --help
+--slidedynzero       | specify when dynamic slide intensity is 0%. For more details please read dxmakerbot --help
 --slidedynpositive   | dynamic price slide increase positive, applied if maker price goes up, range between 0 and slidedynpositive, dynamically computed by assets ratio (default=0, 0.5 means maximum at +50% of price)
 --slidedynnegative   | dynamic price slide increase negative, applied if maker price goes down, range between 0 and slidedynnegative, dynamically computed by assets ratio (default=0, 0.1 means maximum at +10% of price)
 --slidedynzoneignore | dynamic price slide increase ignore is zone when dynamic slide is not activated(default=0.05 means 5% of balance)
