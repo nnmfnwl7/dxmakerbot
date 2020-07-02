@@ -325,6 +325,15 @@ def load_config_verify_or_exit():
     if c.BOTdelayinternal < 1:
         print('**** ERROR, <delayinternal> value <{0}> is invalid'.format(c.BOTdelayinternal))
         error_num += 1
+        
+    if c.BOTdelayinternalerror < 1:
+        print('**** ERROR, <delayinternalerror> value <{0}> is invalid'.format(c.BOTdelayinternalerror))
+        error_num += 1
+        
+    # arguments: internal values changes
+    if c.BOTdelayinternalcycle < 1:
+        print('**** ERROR, <delayinternalcycle> value <{0}> is invalid'.format(c.BOTdelayinternalcycle))
+        error_num += 1
     
     if c.BOTdelaycheckprice < 1:
         print('**** ERROR, <delaycheckprice> value <{0}> is invalid'.format(c.BOTdelaycheckprice))
@@ -425,8 +434,10 @@ def load_config():
     parser.add_argument('--resetafterorderfinishdelay', type=int, help='delay after finishing last order before resetting orders in seconds (default=0 disabled)', default=0)
 
     # arguments: internal values changes
-    parser.add_argument('--delayinternal', type=int, help='sleep delay, in seconds, between loops to place/cancel orders or other internal operations(can be used ie. case of bad internet connection...) (default=3)', default=3)
-    parser.add_argument('--delaycheckprice', type=int, help='sleep delay, in seconds to check again pricing (default=180)', default=180)
+    parser.add_argument('--delayinternal', type=float, help='sleep delay, in seconds, between place/cancel orders or other internal operations(can be used ie. case of bad internet connection...) (default=2.3)', default=2.3)
+    parser.add_argument('--delayinternalerror', type=float, help='sleep delay, in seconds, when error happen to try again. (default=10)', default=10)
+    parser.add_argument('--delayinternalcycle', type=float, help='sleep delay, in seconds, between main loops to process all things to handle. (default=8)', default=8)
+    parser.add_argument('--delaycheckprice', type=float, help='sleep delay, in seconds to check again pricing (default=180)', default=180)
 
     # arguments: pricing source arguments
     parser.add_argument('--usecb', help='enable cryptobridge pricing', action='store_true')
@@ -524,7 +535,9 @@ def load_config():
     c.BOTresetafterorderfinishdelay = int(args.resetafterorderfinishdelay)
     
     # arguments: internal values changes
-    c.BOTdelayinternal = int(args.delayinternal)
+    c.BOTdelayinternal = float(args.delayinternal)
+    c.BOTdelayinternalerror = float(args.delayinternalerror)
+    c.BOTdelayinternalcycle = float(args.delayinternalcycle)
     c.BOTdelaycheckprice = int(args.delaycheckprice)
     
     # arguments: pricing source arguments
@@ -640,7 +653,7 @@ def feature__boundary__pricing_update_relative_initial():
         if d.boundary_price_maker_initial != 0:
             break
         print('#### Pricing boundaries once not available... waiting to restore...')
-        time.sleep(c.BOTdelayinternal)
+        time.sleep(c.BOTdelayinternalerror)
 
 # get balances which are locked in orders
 def balance_reserved_by_orders_get(maker, taker, maker_addr = None , taker_addr = None):
@@ -918,7 +931,7 @@ def events_wait_reopenfinished_update(virtual_order, actual_order, finished_by_t
     # ~ print('%%%% DEBUG orders opened {0} orders finished {1} last time order finished {2}'.format(d.orders_pending_to_reopen_opened, d.orders_pending_to_reopen_finished, d.orders_pending_to_reopen_finished_time))
 
 # create order and update also corresponding virtual-order
-def virtual_orders_create_one(order_id, order_name, price, slide, stageredslide, dynslide, sell_amount):
+def virtual_orders_create_one(order_id, order_name, price, slide, stageredslide, dynslide, sell_amount, sell_amount_min):
     global c, s, d
     makermarketpriceslide = float(price) * (slide + stageredslide + dynslide)
     
@@ -948,6 +961,7 @@ def virtual_orders_create_one(order_id, order_name, price, slide, stageredslide,
         d.ordersvirtual[order_id]['name'] = order_name
         d.ordersvirtual[order_id]['market_price'] = price
         d.ordersvirtual[order_id]['order_price'] = makermarketpriceslide
+        d.ordersvirtual[order_id]['maker_size_min'] = sell_amount_min
 
 # recompute order tx fee (TODO)
 def sell_amount_txfee_recompute(sell_amount):
@@ -983,9 +997,12 @@ def balance_available_to_sell_recompute(sell_amount_max=0, sell_amount_min=0):
     if sell_amount_max != 0:
         sell_amount = min(sell_amount_max, sell_amount)
     
-    # apply minimum amount if enabled
+    # apply minimum amount if enabled otherwise try to apply maximum as exact amount if enabled
     if sell_amount_min != 0:
         if sell_amount < sell_amount_min:
+            sell_amount = 0
+    elif sell_amount_max != 0:
+        if sell_amount_max != sell_amount:
             sell_amount = 0
     
     return sell_amount
@@ -998,7 +1015,7 @@ def virtual_orders_prepare_once():
     
     while pricing_update_main() == 0:
         print('#### Pricing not available... waiting to restore...')
-        time.sleep(c.BOTdelayinternal)
+        time.sleep(c.BOTdelayinternalerror)
     
     d.reset_on_price_change_start = d.price_maker
     
@@ -1025,11 +1042,11 @@ def virtual_orders_prepare_recheck():
         d.time_start_update_pricing = time.time()
         while pricing_update_main() == 0:
             print('#### Pricing main not available... waiting to restore...')
-            time.sleep(c.BOTdelayinternal)
+            time.sleep(c.BOTdelayinternalerror)
             
         while feature__boundary__pricing_update() == 0:
             print('#### Pricing boundaries not available... waiting to restore...')
-            time.sleep(c.BOTdelayinternal)
+            time.sleep(c.BOTdelayinternalerror)
     
     events_wait_reopenfinished_reset_detect()
     
@@ -1380,7 +1397,7 @@ def virtual_orders_handle():
             # compute staggered orders slides
             staggeredslide = ((c.BOTslideend - c.BOTslidestart) / max((s.ordersvirtualmax -1 -int(c.BOTslidepumpenabled)),1 ))*i
             
-            virtual_orders_create_one(i, order_name, price_maker_with_boundaries, c.BOTslidestart, staggeredslide, d.dynamic_slide, sell_amount)
+            virtual_orders_create_one(i, order_name, price_maker_with_boundaries, c.BOTslidestart, staggeredslide, d.dynamic_slide, sell_amount, sell_amount_min)
             time.sleep(c.BOTdelayinternal)
     
     # special pump/dump order handling
@@ -1388,8 +1405,7 @@ def virtual_orders_handle():
         update_balances()
         sell_amount = balance_available_to_sell_recompute(c.BOTpumpamount, c.BOTpumpamount)
         if sell_amount > 0:
-            virtual_orders_create_one(s.ordersvirtualmax-1, 'pump/dump', price_maker_with_boundaries, c.BOTslidemax, c.BOTslidepump, d.dynamic_slide, sell_amount)
-            time.sleep(c.BOTdelayinternal)
+            virtual_orders_create_one(s.ordersvirtualmax-1, 'pump/dump', price_maker_with_boundaries, c.BOTslidemax, c.BOTslidepump, d.dynamic_slide, sell_amount, sell_amount_min)
             
 # 
 def feature__takerbot__virtual_order_was_taken_get(virtual_order):
@@ -1409,6 +1425,8 @@ def feature__takerbot__virtual_order_was_taken_set(virtual_order, true_false):
 # function to loop all already created orders, find match with thirty party created orders and accept em.
 def feature__takerbot__run():
     global c, s, d
+    
+    print('checking for takerbot actions')
     
     ret = False
     
@@ -1453,39 +1471,41 @@ def feature__takerbot__run():
                     if float(orders_market_sorted[i]['order_price']) >= orders_virtual_sorted[j]['order_price']:
                         # count orders which status is new/open
                         if orders_virtual_sorted[j]['status'] in s.feature__takerbot__list_of_usable_statuses:
-                            print('\n *** *** *** order_virtual_sorted no {} passed requirements {}\n'.format(j, orders_virtual_sorted[j]))
-                            
-                            # add virtual order to list of candidates for takerbot to be cancelled and market order accepted
-                            order_candidates.append(orders_virtual_sorted[j])
-                            
-                            # increase available maker amount to sell
-                            maker_sum = maker_sum + orders_virtual_sorted[j]['size']
-                            
-                            # if there is enough balance and order meet requirements, try to handle situation and take order
-                            if maker_sum >= float(orders_market_sorted[i]['size']):
-                                print('\n *** *** *** *** summary of makers size {} is enough for {}\n'.format(maker_sum, float(orders_market_sorted[i]['size'])))
-                                # try to cancel bot orders which are dependant on takerbot action
-                                for k in range(len(order_candidates)):
-                                    ret_cancelorder = dxbottools.rpc_connection.dxCancelOrder(order_candidates[k]['id'])
-                                    err = ret_cancelorder.get('error', None)
-                                    # in case of error we must exit whole takerbot process and let bot recreate orders
-                                    if err is not None:
-                                        break
+                            # count order only if market order size at least virtual order minimum acceptable size
+                            if (orders_virtual_sorted[j]['maker_size_min'] != 0 and float(orders_market_sorted[i]['size']) >= orders_virtual_sorted[j]['maker_size_min']) or (float(orders_market_sorted[i]['size']) >= orders_virtual_sorted[j]['maker_size']):
+                                print('\n *** *** *** order_virtual_sorted no {} passed requirements {}\n'.format(j, orders_virtual_sorted[j]))
                                 
-                                #try to accept order
-                                ret_takeorder = dxbottools.takeorder(orders_market_sorted[i]['order_id'], c.BOTtakeraddress, c.BOTmakeraddress)
-                                err = ret_takeorder.get('error', None)
+                                # add virtual order to list of candidates for takerbot to be cancelled and market order accepted
+                                order_candidates.append(orders_virtual_sorted[j])
                                 
-                                # if process success, update order candidates as accepted by takerbot
-                                if err is None:
+                                # increase available maker amount to sell
+                                maker_sum = maker_sum + orders_virtual_sorted[j]['size']
+                                
+                                # if there is enough balance and order meet requirements, try to handle situation and take order
+                                if maker_sum >= float(orders_market_sorted[i]['size']):
+                                    print('\n *** *** *** *** summary of makers size {} is enough for {}\n'.format(maker_sum, float(orders_market_sorted[i]['size'])))
+                                    # try to cancel bot orders which are dependant on takerbot action
                                     for k in range(len(order_candidates)):
-                                        feature__takerbot__virtual_order_was_taken_set(order_candidates[k], True)
-                                    ret = True
-                                # in case of error we must exit whole takerbot process and let bot recreate orders
+                                        ret_cancelorder = dxbottools.rpc_connection.dxCancelOrder(order_candidates[k]['id'])
+                                        err = ret_cancelorder.get('error', None)
+                                        # in case of error we must exit whole takerbot process and let bot recreate orders
+                                        if err is not None:
+                                            break
+                                    
+                                    #try to accept order
+                                    ret_takeorder = dxbottools.takeorder(orders_market_sorted[i]['order_id'], c.BOTtakeraddress, c.BOTmakeraddress)
+                                    err = ret_takeorder.get('error', None)
+                                    
+                                    # if process success, update order candidates as accepted by takerbot
+                                    if err is None:
+                                        for k in range(len(order_candidates)):
+                                            feature__takerbot__virtual_order_was_taken_set(order_candidates[k], True)
+                                        ret = True
+                                    # in case of error we must exit whole takerbot process and let bot recreate orders
+                                    else:
+                                        break
                                 else:
-                                    break
-                            else:
-                                print('\n *** *** *** *** summary of makers size {} is not enough for {}\n'.format(maker_sum, float(orders_market_sorted[i]['size'])))
+                                    print('\n *** *** *** *** summary of makers size {} is not enough for {}\n'.format(maker_sum, float(orders_market_sorted[i]['size'])))
                     else:
                         break
                     
@@ -1568,11 +1588,11 @@ if __name__ == '__main__':
             if events_exit_bot() == True:
                 sys.exit(0)
                 
-            # second highest priority is to check for events that forces bot to reset orders. with some exceptions when price out of boundary happen
+            # second highest priority is to check for events that forces bot to reset orders.
             elif events_reset_orders() == True:
                 break
                 
-            # takerbot priority is before wait events which can potentially break takerbot functionality. Check for partial orders to be accepted. If some orders been accepted, bot must call prepare recheck() function again so pass is called
+            # takerbot priority is before wait events which can potentially break takerbot functionality. Check for partial orders to be accepted. If some orders been takerbot accepted, bot must call prepare recheck() function again so pass is called
             elif feature__takerbot__run() == True:
                 pass
                 
@@ -1584,6 +1604,6 @@ if __name__ == '__main__':
             else:
                 virtual_orders_handle()
             
-            time.sleep(c.BOTdelayinternal)
+            time.sleep(c.BOTdelayinternalcycle)
             
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
