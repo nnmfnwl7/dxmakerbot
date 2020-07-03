@@ -1446,50 +1446,60 @@ def feature__takerbot__run():
             keys = [ 'order_price', 'size' , 'order_id' ]
             orders_market = [dict(zip(keys, bidlist_item)) for bidlist_item in bidlist ]
             
+            # simulation of market order >> testing >> debug
+            # ~ orders_market.append({'order_price': '0.029277', 'size': '1.98', 'order_id': '123456789'})
+            
+            # convert strings to floats
+            for i in range(len(orders_market)):
+                orders_market[i]['order_price'] = float(orders_market[i]['order_price'])
+                orders_market[i]['size'] = float(orders_market[i]['size'])
+            
             # sort market order book and my order book by price
             orders_market_sorted = sorted(orders_market, key=lambda order: order['order_price'], reverse=True)
             orders_virtual_sorted = sorted(d.ordersvirtual, key=lambda order: order['order_price'], reverse=False)
             
-            # ~ print('\n\norders_market_sorted: {}'.format(orders_market_sorted))
-            # ~ print('\n\norders_virtual_sorted: {}'.format(orders_virtual_sorted))
+            # simulation >> testing >> debug
+            # ~ print('\n\norders_market_sorted: <{}>'.format(orders_market_sorted))
+            # ~ print('\n\norders_virtual_sorted: <{}>'.format(orders_virtual_sorted))
             
             # takerbot process. Something like limit orders layer on top of blockdx atomic swap order book.
             
             # go all market open orders sorted by best price
             err = None
             for i in range(len(orders_market_sorted)):
-                print('\n *** checking order_market_sorted no {} {}\n'.format(i, orders_market_sorted[i]))
+                print('\n *** checking order_market_sorted no <{}> <{}>\n'.format(i, orders_market_sorted[i]))
                 
-                maker_sum = 0
+                maker_sum = float(0)
                 order_candidates = list()
                 
                 # go all bot open orders, sum up bot orders to match market order size
                 for j in range(len(orders_virtual_sorted)):
-                    print('\n *** *** checking order_virtual_sorted no {} {}\n'.format(j, orders_virtual_sorted[j]))
+                    print('\n *** *** checking order_virtual_sorted no <{}> <{}>\n'.format(j, orders_virtual_sorted[j]))
                     
                     # count orders which are price better or same
-                    if float(orders_market_sorted[i]['order_price']) >= orders_virtual_sorted[j]['order_price']:
+                    if orders_market_sorted[i]['order_price'] >= orders_virtual_sorted[j]['order_price']:
                         # count orders which status is new/open
                         if orders_virtual_sorted[j]['status'] in s.feature__takerbot__list_of_usable_statuses:
                             # count order only if market order size at least virtual order minimum acceptable size
-                            if (orders_virtual_sorted[j]['maker_size_min'] != 0 and float(orders_market_sorted[i]['size']) >= orders_virtual_sorted[j]['maker_size_min']) or (float(orders_market_sorted[i]['size']) >= orders_virtual_sorted[j]['maker_size']):
-                                print('\n *** *** *** order_virtual_sorted no {} passed requirements {}\n'.format(j, orders_virtual_sorted[j]))
+                            if (orders_virtual_sorted[j]['maker_size_min'] != 0 and orders_market_sorted[i]['size'] >= orders_virtual_sorted[j]['maker_size_min']) or (orders_market_sorted[i]['size'] >= float(orders_virtual_sorted[j]['maker_size'])):
+                                print('\n *** *** *** order_virtual_sorted no <{}> passed requirements <{}>\n'.format(j, orders_virtual_sorted[j]))
                                 
                                 # add virtual order to list of candidates for takerbot to be cancelled and market order accepted
                                 order_candidates.append(orders_virtual_sorted[j])
                                 
                                 # increase available maker amount to sell
-                                maker_sum = maker_sum + orders_virtual_sorted[j]['size']
+                                maker_sum = maker_sum + float(orders_virtual_sorted[j]['maker_size'])
                                 
                                 # if there is enough balance and order meet requirements, try to handle situation and take order
                                 if maker_sum >= float(orders_market_sorted[i]['size']):
-                                    print('\n *** *** *** *** summary of makers size {} is enough for {}\n'.format(maker_sum, float(orders_market_sorted[i]['size'])))
+                                    print('\n *** *** *** *** summary of makers sizes <{}> is enough for <{}>\n'.format(maker_sum, orders_market_sorted[i]['size']))
                                     # try to cancel bot orders which are dependant on takerbot action
                                     for k in range(len(order_candidates)):
                                         ret_cancelorder = dxbottools.rpc_connection.dxCancelOrder(order_candidates[k]['id'])
                                         err = ret_cancelorder.get('error', None)
                                         # in case of error we must exit whole takerbot process and let bot recreate orders
                                         if err is not None:
+                                            print('\n *** *** *** *** *** cancel virtual order candidate <{}> failed <{}> \n'.format(k, err))
                                             break
                                     
                                     #try to accept order
@@ -1498,14 +1508,16 @@ def feature__takerbot__run():
                                     
                                     # if process success, update order candidates as accepted by takerbot
                                     if err is None:
+                                        print('\n *** *** *** *** *** take market order <{}> success\n'.format(i))
                                         for k in range(len(order_candidates)):
                                             feature__takerbot__virtual_order_was_taken_set(order_candidates[k], True)
                                         ret = True
                                     # in case of error we must exit whole takerbot process and let bot recreate orders
                                     else:
+                                        print('\n *** *** *** *** *** take market order <{}> failed <{}> \n'.format(i, err))
                                         break
                                 else:
-                                    print('\n *** *** *** *** summary of makers size {} is not enough for {}\n'.format(maker_sum, float(orders_market_sorted[i]['size'])))
+                                    print('\n *** *** *** *** summary of makers sizes <{}> is not enough for <{}>\n'.format(maker_sum, orders_market_sorted[i]['size']))
                     else:
                         break
                     
