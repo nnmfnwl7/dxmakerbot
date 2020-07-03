@@ -268,8 +268,10 @@ Flag                          | Description
 -------------------------------
 Flag              | Description
 ------------------|------------
---delayinternal   | sleep delay, in seconds, between loops to place/cancel orders or other internal operations(can be used ie. case of bad internet connection...) (default=9)
---delaycheckprice | sleep delay, in seconds to check again pricing (default=180)
+--delayinternal      | sleep delay, in seconds, between place/cancel orders or other internal operations(can be used ie. case of bad internet connection...) (default=2.3)
+--delayinternalerror | sleep delay, in seconds, when error happen to try again. (default=10)
+--delayinternalcycle | sleep delay, in seconds, between main loops to process all things to handle. (default=8)
+--delaycheckprice    | sleep delay, in seconds to check again pricing (default=180)
 
 ### pricing source configuration arguments
 -----------------------------------------
