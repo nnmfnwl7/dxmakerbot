@@ -809,8 +809,6 @@ def feature__slide_dynamic__update():
     
     slide_dynamic_intensity = feature__slide_dynamic__get_intensity()
     
-    slide_dynamic_intensity = max(slide_dynamic_intensity, -1)
-    
     if abs(slide_dynamic_intensity) < c.BOTslidedynzoneignore:
         d.dynamic_slide = 0
         print('>>>> Using dynamic_spread <{}> because slide_dynamic_intensity <{}> is in slidedynzoneignore <{}>'.format(d.dynamic_slide, slide_dynamic_intensity, c.BOTslidedynzoneignore))
@@ -1454,9 +1452,15 @@ def feature__takerbot__run():
                 orders_market[i]['order_price'] = float(orders_market[i]['order_price'])
                 orders_market[i]['size'] = float(orders_market[i]['size'])
             
+            # filter only opened virtual orders
+            orders_virtual_sorted = list()
+            for i in range(len(d.ordersvirtual)):
+                if d.ordersvirtual[i].get('order_price', None) is not None:
+                    orders_virtual_sorted.append(d.ordersvirtual[i])
+            
             # sort market order book and my order book by price
             orders_market_sorted = sorted(orders_market, key=lambda order: order['order_price'], reverse=True)
-            orders_virtual_sorted = sorted(d.ordersvirtual, key=lambda order: order['order_price'], reverse=False)
+            orders_virtual_sorted = sorted(orders_virtual_sorted, key=lambda order: order['order_price'], reverse=False)
             
             # simulation >> testing >> debug
             # ~ print('\n\norders_market_sorted: <{}>'.format(orders_market_sorted))
