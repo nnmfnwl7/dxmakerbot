@@ -661,7 +661,7 @@ def balance_reserved_by_orders_get(maker, taker, maker_addr = None , taker_addr 
     
     # as XBridge API feature to access UTXOs list is only in plan stage, workround for this will be measuring locked amounts.
     # But locked amounts often does not represent whole UTXO size.
-    ordersopen = dxbottools.getmyordersbymarket(maker, taker)
+    ordersopen = dxbottools.getallmyordersbymarket(maker, taker)
     
     balance_tmp = 0
     
@@ -840,7 +840,7 @@ def virtual_orders_cancel():
     # loop while some orders are opened otherwise break while, do not cancel orders which are in progress
     while 1:
         clearing = int(0)
-        ordersopen = dxbottools.getmyordersbymarket(c.BOTsellmarket,c.BOTbuymarket)
+        ordersopen = dxbottools.getallmyordersbymarket(c.BOTsellmarket,c.BOTbuymarket)
         # loop all previously opened virtual orders and try clearing opened
         for i in range(s.ordersvirtualmax):
             # try to find match between session and existing orders and clear it
@@ -874,7 +874,7 @@ def virtual_orders_check_status_update_status():
     global c, s, d
     print('>>>> Checking all session virtual orders how many orders finished and last time when order was finished...')
     
-    ordersopen = dxbottools.getmyordersbymarket(c.BOTsellmarket,c.BOTbuymarket)
+    ordersopen = dxbottools.getallmyordersbymarket(c.BOTsellmarket,c.BOTbuymarket)
     for i in range(s.ordersvirtualmax):
         if d.ordersvirtual[i]['id'] != 0:
             # check how many virtual open orders finished
