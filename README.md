@@ -202,11 +202,14 @@ Flag            | Description
 --taker         | asset being bought (default=LTC)
 --makeraddress  | trading address of asset being sold (default=None)
 --takeraddress  | trading address of asset being bought (default=None)
+--address_only  | limit bot to use and compute funds only from maker and taker address(default=False disabled)
 
 ### basic configuration arguments
 -----------------------------------
 Flag                  | Description
 ----------------------|------------
+--sell_type           | <float> number between -1 and 1. -1 means maximum exponential to 0 means linear to 1 means maximum logarithmic. Recommended middle range log and exp values are 0.8 and -0.45 (default=0 linear)
+--sell_size_asset     | size of orders are set in specific asset instead of maker (default=--maker)
 --sellstart           | size of first order or random from range sellstart and sellend (default=0.001)
 --sellstartmin        | minimum acceptable size of first order. If this is configured and there is not enough balance to create first order at <sellstart> size, order will be created at maximum possible size between <sellstart> and <sellstartmin>. (default=0 disabled)
 --sellend             | size of last order or random from range sellstart and sellend  (default=0.001)
@@ -215,10 +218,12 @@ Flag                  | Description
 --slidestart          | price of first order will be equal to slidestart * price source quote(default=1.01 means +1%)
 --slideend            | price of last order will be equal to slideend * price source quote(default=1.021 means +2.1%)
 --maxopen             | Max amount of orders to have open at any given time. Placing orders sequence: first placed order is at slidestart(price slide),sellstart(amount) up to slideend(price slide),sellend(amount), last order placed is slidepump if configured, is not counted into this number (default=5)
+--make_next_on_hit    | create next order on 0 amount hit, so if first order is not created, rather skipped, next is created(default=False disabled)
 --reopenfinishednum   | reopen finished orders after specific number of filled orders(default=0 means disabled)
 --reopenfinisheddelay | reopen finished orders after specific delay of last filled order(default=0 means disabled)
 --balancesavenumber   | min taker balance you want to save and do not use for making orders specified by number (default=0)
 --balancesavepercent  | min taker balance you want to save and do not use for making orders specified by percent of maker+taker balance (default=0.05 means 5%)
+--partial_orders      | enable or disable partial orders. Partial orders minimum is set by <sellstartmin> <sellendmin> along with dynamic size of orders(default=False disabled)
 
 ### takerbot configuration arguments
 ----------------------------------
@@ -240,19 +245,21 @@ Flag                 | Description
 --pumpamount         | pump order size, otherwise sellend is used(default=--sellend)
 
 ### boundary limits, exit/wait cancel/nocancel orders configuration arguments
--------------------------------------
-Flag                    | Description
-------------------------|------------
---boundary_asset_maker  | boundary measurement asset, for example BTC (default= --maker)', default=None)
---boundary_asset_taker  | boundary measurement asset, for example asset_maker is BTC and boundary_asset_taker is USDT, so boundary min max can be 5000-9000 (default= --taker)
---boundary_max_relative | maximum acceptable price of maker payed by taker which bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:3, so bot will work up to 100*3 = 300 price, (default=0 disabled)
---boundary_min_relative | minimum acceptable price of maker payed by taker which bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:0.8, so bot will sell at least for 100*0.8 = 80 price, (default=0 disabled)
---boundary_max_static   | maximum acceptable price which bot will work with(default=0 disabled)
---boundary_min_static   | minimum acceptable price which bot will work with(default=0 disabled)
---boundary_max_nocancel | do not cancel orders, default is to cancel orders (default cancel orders)
---boundary_max_noexit   | wait instead of exit program, default is to exit program (default exit bot)
---boundary_min_nocancel | do not cancel orders, default is to cancel orders (default cancel orders)
---boundary_min_noexit   | wait instead of exit program, default is to exit program (default exit bot)
+-----------------------------------------
+Flag                        | Description
+----------------------------|------------
+--boundary_asset            | boundary measurement asset, i.e.: if maker/taker pair is BLOCK/BTC and boundary_asset_is USDT, so possible boundary min 1.5 and max 3 USD (default= --taker)
+--boundary_asset_track      | track boundary asset price updates. This means, ie if trading BLOCK/BTC on USD also track USD/BTC price and update boundaries by it (default=False disabled)
+--boundary_reversed_pricing | reverse pricing as 1/X, ie BLOCK/BTC vs BTC/BLOCK pricing can set like 0.000145 on both bot trading sides, instead of 0.000145 vs 6896.55.
+--boundary_start_price      | manually set center price. Its usable only when using relative boundaries and boundary_asset_track is Disabled (default=0 automatic)
+--boundary_max_relative     | maximum acceptable price of maker payed by taker which bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:3, so bot will work up to 100*3 = 300 price, (default=0 disabled)
+--boundary_min_relative     | minimum acceptable price of maker payed by taker which bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:0.8, so bot will sell at least for 100*0.8 = 80 price, (default=0 disabled)
+--boundary_max_static       | maximum acceptable price which bot will work with(default=0 disabled)
+--boundary_min_static       | minimum acceptable price which bot will work with(default=0 disabled)
+--boundary_max_nocancel     | do not cancel orders, default is to cancel orders (default cancel orders)
+--boundary_max_noexit       | wait instead of exit program, default is to exit program (default exit bot)
+--boundary_min_nocancel     | do not cancel orders, default is to cancel orders (default cancel orders)
+--boundary_min_noexit       | wait instead of exit program, default is to exit program (default exit bot)
 
 ### reset orders configuration arguments
 -------------------------------------------

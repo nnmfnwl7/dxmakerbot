@@ -34,23 +34,72 @@ botconfig = str(
     "--makeraddress litecoin_addr_is_missing_here"
     "--takeraddress blocknet_addr_is_missing_here"
 
+#limit bot to use and compute funds only from maker and taker address(default=False disabled)
+    # ~ "--address_only True"
+
 #do not save any maker balance
     "--balancesavenumber 0 --balancesavepercent 0"
   
 #bot will try to create orders with dynamic size if there is no balance available to create order at maximum. but only between <value, min value>
 #also takerbot is accepting at least order with size in range between <value, min value>
-    #first placed order at maker size min 0.4 up to max 2.66 by available balance
-        "--sellstart 2.66 --sellstartmin 0.4"
-    #last placed order at maker size min 0.4 up to max 1.33 by available balance
-        "--sellend 1.33 --sellendmin 0.4"
+    # lets say size of orders are set in USDT
+        # ~ "--sell_size_asset USDT"
+    # lets say size of orders are set in BLOCK
+        "--sell_size_asset BLOCK"
+    #first placed order at maker size min 15 up to max 100 by available balance
+        "--sellstart 100.0 --sellstartmin 15.0"
+    #last placed order at maker size min 15 up to max 50 by available balance
+        "--sellend 50.0 --sellendmin 15.0"
+
+# maximum exponential to 0 means linear to 1 means maximum logarithmic. Recommended middle range log and exp values are 0.8 and -0.45 (default=0 linear)
+    # ~ "--sell_type 0.45"
+
+# EXAMPLE INFOGRAPHIC:
+#      ^
+#      |                                                
+# O    |                                              8  > order number #1 up to order number #8 with LINEAR --sell_type 0 order amount distribution
+# R    |                                           7  | 
+# D    |                                        6  |--| 
+# E    |                                     5  |--|--| 
+# R S  |                                  4  |--|--|--| 
+#   I  |                               3  |--|--|--|--| 
+#   Z  |                            2  |--|--|--|--|--| 
+#   E  |                         1  |--|--|--|--|--|--| 
+#      |                         |--|--|--|--|--|--|--| 
+#      ------------------------------------------------------>
+#                                ^                        price
+#                          center price
+#
+
+#      ^
+#      |                                                
+# O    |                                           7  8  > order number #1 up to order number #8 with EXPONENTIAL --sell_type -0.45 order amount distribution
+# R    |                                           |--| 
+# D    |                                        6  |--| 
+# E    |                                        |--|--| 
+# R S  |                                     5  |--|--| 
+#   I  |                                     |--|--|--| 
+#   Z  |                                  4  |--|--|--| 
+#   E  |                         1  2  3  |--|--|--|--| 
+#      |                         |--|--|--|--|--|--|--| 
+#      ------------------------------------------------------>
+#                                ^                        price
+#                          center price
+#
 
 #configure bot to have 3 orders opened.
 #all other orders between first and last order are automatically recomputed by number of orders and linearly distributed between <sellstart, sellstartmin> and <sellend, sellendmin>
 #so if bot have order size from <1> up to <6> and max number of orders is 3 middle will be 3.5, so orders will be <1> <3.5> <6>
     "--maxopen 3"
-   
-#first order at price slide to 104%(if price is 1 USD final is 1.04 USD), second order with price slide 102% and last order with price slide to 101%
-    "--slidestart 1.03 --slideend 1.01"
+
+#create next order on 0 amount hit, so if first order is not created, rather skipped, next is created(default=False disabled)
+    # ~ "--make_next_on_hit True"
+
+#enable or disable partial orders. Partial orders minimum is set by <sellstartmin> <sellendmin> along with dynamic size of orders(default=False disabled)
+    "--partial_orders True"
+
+#first order at price slide to 110%(if price is 1 USD final is 1.10 USD), second order with price slide 106.5% and last order with price slide to 103%
+    "--slidestart 1.10 --slideend 1.03"
 
 #no pump order. pump and dump orders are very useful, in case of pump you can buy back more and cheap.
     "--slidepump 0 --pumpamount 0 --pumpamountmin 0"
@@ -78,15 +127,33 @@ botconfig = str(
 
 #do not reset all orders at timer, reset all orders when 3 orders are taken/accepted, do not reset orders on timer when some order is accepted
     "--resetafterdelay 0 --resetafterorderfinishnumber 3 --resetafterorderfinishdelay 0"
-   
-#set maxium and minimum bot price boundary at 105% and 95% of price when bot was started
-    "--boundary_max_relative 1.05 --boundary_min_relative 0.95"
-    #do not exit bot when boundary reached, cancel orders on max boundary, do not cancel orders on min boundary
-        "--boundary_max_noexit --boundary_min_noexit --boundary_min_nocancel"
 
-#alternative boundary configuration, set maximum and minimum bot price boundary at static values relative to bitcoin
-    # ~ "--boundary_asset_taker BTC"
-    # ~ "--boundary_max_static 0.00469179 --boundary_min_static 0.00469179"
+#boundaries configuration:
+    #do not exit bot when boundary reached
+        "--boundary_max_noexit --boundary_min_noexit"
+    #cancel orders on max boundary. The reason can be user is not willing to continue selling his maker-asset once price is too high and user i.e rather continue staking
+        # ~ "--boundary_max_nocancel"
+    #do not cancel orders on min boundary, but rather keep open orders on minimum boundary. The reason can be user is not willing to sell his maker-asset by very low price.
+        "--boundary_min_nocancel"
+    
+        #set relative maximum and minimum maker price boundaries
+            #set max at 105% and min 95% of price when bot was started
+                "--boundary_max_relative 1.05 --boundary_min_relative 0.95"
+            #set and track relative boundaries against USDT
+                # ~ "--boundary_asset USD"
+                # ~ "--boundary_asset_track True"
+            
+        #alternative set static boundary configuration, set maximum and minimum bot price boundary at static values relative to bitcoin
+            #set relative boundary pricing to BTC.
+                # ~ "--boundary_asset BTC"
+            #set track boundary asset price updates. This means, ie if trading BLOCK/BTC on USD also track USD/BTC price and update boundaries by it.
+                # ~ "--boundary_asset_track True"
+            #Enable reversed pricing as 1/X, ie BLOCK/BTC vs BTC/BLOCK pricing can set like 0.000145 on both bot trading sides, instead of 0.000145 vs 6896.55.
+                # ~ "--boundary_reversed_pricing True"
+            #set manually starting center price
+                # ~ "--boundary_start_price 0.00014511"
+            #set manually boundaries
+                # ~ "--boundary_max_static 0.00013715 --boundary_min_static 0.00020015"
 
 #takerbot act like limit orders on your actually created orders, its also taking whole range of dynamic size and multiple orders
     #enabled takerbot feature to check orders to take on 10 second interval

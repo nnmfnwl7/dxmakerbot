@@ -110,8 +110,21 @@ def makeorder(maker, makeramount, makeraddress, taker, takeramount, takeraddress
     else:
       raise RuntimeError(results)
 
+def make_partial_order(maker, makersize, makeraddress, taker, takersize, takeraddress, minimum_size, repost = True):
+    results = rpc_connection.dxMakePartialOrder(maker, str(makersize), makeraddress, taker, str(takersize), takeraddress, str(minimum_size), str(repost))
+    if 'id' in results:
+      return results
+    else:
+      raise RuntimeError(results)
+
 def takeorder(id, fromaddr, toaddr):
     results = rpc_connection.dxTakeOrder(id, fromaddr, toaddr)
+    return results
+
+def get_utxos(asset, include_used = False):
+    # ~ print ('### Getting utxos list debug input: >>> dxGetUtxos({}, {})'.format(asset, include_used))
+    results = rpc_connection.dxGetUtxos(asset, include_used)
+    # ~ print ('### Getting utxos list debug output: >>> {}'.format(results))
     return results
 
 # return float balance of specific token or return 0 of not exist
