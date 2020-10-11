@@ -335,7 +335,7 @@ def load_config_verify_or_exit():
         print('**** ERROR, <boundary_***_relative> and <boundary_***_static> can not be configured at same time')
         error_num += 1
     
-    if c.BOTboundary_max_relative < c.BOTboundary_min_relative:
+    if c.BOTboundary_max_relative != 0 and c.BOTboundary_max_relative < c.BOTboundary_min_relative:
         print('**** ERROR, <boundary_max_relative> value <{0}> can not be less than <boundary_min_relative> value <{1}>.'.format(c.BOTboundary_max_relative, c.BOTboundary_min_relative))
         error_num += 1
     
@@ -835,17 +835,13 @@ def feature__boundary__pricing_update_relative_init():
 def balance_get(token, address_only = None):
     global c, s, d
     
-    ret = {"total": -1, "available": -1, "reserved": -1}
+    ret = {"total": 0, "available": 0, "reserved": 0}
     
     # get all utxos
     utxos = dxbottools.get_utxos(token, True)
     
     # check if get utxos error been occurred
     if isinstance(utxos, list):
-        
-        ret["total"] = float(0)
-        ret["available"] = float(0)
-        ret["reserved"] = float(0)
         
         for utxo in utxos:
             if address_only == None or utxo.get("address", "") == address_only:
@@ -855,7 +851,9 @@ def balance_get(token, address_only = None):
                 else:
                     ret["reserved"] += float(tmp)
                 ret["total"] += float(tmp)
-                
+    else:
+        print('ERROR: get_utxos call invalid response: {}'.format(utxos))
+    
     return ret
     
 # update actual balanced of maker and taker
@@ -867,16 +865,16 @@ def update_balances():
     tmp_maker = {}
     tmp_taker = {}
     
-    while 1:
-        if c.BOTaddress_only is True:
-            tmp_maker = balance_get(c.BOTsellmarket, c.BOTmakeraddress)
-            tmp_taker = balance_get(c.BOTbuymarket, c.BOTtakeraddress)
-        else:
-            tmp_maker = balance_get(c.BOTsellmarket, None)
-            tmp_taker = balance_get(c.BOTbuymarket, None)
-        
-        if tmp_maker["total"] != 0 and tmp_taker["total"] != 0:
-            break
+    tmp_maker_address = None
+    tmp_taker_address = None
+    
+    # if bot using funds from specific address only
+    if c.BOTaddress_only is True:
+        tmp_maker_address = c.BOTmakeraddress
+        tmp_taker_address = c.BOTtakeraddress
+    
+    tmp_maker = balance_get(c.BOTsellmarket, tmp_maker_address)
+    tmp_taker = balance_get(c.BOTbuymarket, tmp_taker_address)
     
     d.balance_maker_total = tmp_maker["total"]
     d.balance_maker_available = tmp_maker["available"]
@@ -886,8 +884,8 @@ def update_balances():
     d.balance_taker_available = tmp_taker["available"]
     d.balance_taker_reserved = tmp_taker["reserved"]
     
-    print('>>>> Actual balance maker token <{}> total <{}> available <{}> reserved <{}>'.format(c.BOTsellmarket, d.balance_maker_total, d.balance_maker_available, d.balance_maker_reserved))
-    print('>>>> Actual balance taker token <{}> total <{}> available <{}> reserved <{}>'.format(c.BOTbuymarket, d.balance_taker_total, d.balance_taker_available, d.balance_taker_reserved))
+    print('>>>> Actual balance maker token <{}> <{}> total <{}> available <{}> reserved <{}>'.format(tmp_maker_address, c.BOTsellmarket, d.balance_maker_total, d.balance_maker_available, d.balance_maker_reserved))
+    print('>>>> Actual balance taker token <{}> <{}> total <{}> available <{}> reserved <{}>'.format(tmp_taker_address, c.BOTbuymarket, d.balance_taker_total, d.balance_taker_available, d.balance_taker_reserved))
 
 # initialize dynamic slide feature
 def feature__slide_dynamic__init_postpricing():
@@ -1221,7 +1219,6 @@ def balance_available_to_sell_recompute(sell_amount_max=0, sell_amount_min=0):
 def virtual_orders__prepare_once():
     global c, s, d
     update_balances()
-    d.balance_maker_total = d.balance_maker_available
     
     while pricing_update_main() == 0:
         print('#### Pricing not available... waiting to restore...')
@@ -1662,18 +1659,23 @@ def virtual_orders__handle():
             update_balances()
             
             # compute dynamic order size range, apply <sell_type> linear/log/exp on maximum amount by order number distribution
-            sell_amount_max = sell_amount_recompute(c.BOTsellstart, c.BOTsellend, s.ordersvirtualmax - int(c.BOTslidepumpenabled), i, c.BOTsell_type)
-            sell_amount_min = sell_amount_recompute(c.BOTsellstartmin, c.BOTsellendmin, s.ordersvirtualmax - int(c.BOTslidepumpenabled), i, c.BOTsell_type)
+            sell_amount_max_sse = sell_amount_recompute(c.BOTsellstart, c.BOTsellend, s.ordersvirtualmax - int(c.BOTslidepumpenabled), i, c.BOTsell_type)
+            sell_amount_min_sse = sell_amount_recompute(c.BOTsellstartmin, c.BOTsellendmin, s.ordersvirtualmax - int(c.BOTslidepumpenabled), i, c.BOTsell_type)
             
             # convert sell size in sell size asset to maker asset
-            sell_amount_max = sell_amount_max * d.feature__sell_size_asset__price
-            sell_amount_min = sell_amount_min * d.feature__sell_size_asset__price
+            sell_amount_max = sell_amount_max_sse * d.feature__sell_size_asset__price
+            sell_amount_min = sell_amount_min_sse * d.feature__sell_size_asset__price
             
             # recompute sell amount by available balance, other limit conditions
             sell_amount = balance_available_to_sell_recompute(sell_amount_max, sell_amount_min)
             
+            # convert final amount to sell to sell size asset amount
+            sell_amount_sse = sell_amount / d.feature__sell_size_asset__price
+            
             # recompute price by configured boundaries
             price_maker_with_boundaries = feature__boundary__recompute_price()
+            
+            print('>>>> Order maker size <{}/{} {}~{} min {}~{} final {}~{}>'.format(c.BOTsellmarket, c.BOTsell_size_asset, sell_amount_max, sell_amount_max_sse, sell_amount_min, sell_amount_min_sse, sell_amount, sell_amount_sse))
             
             if sell_amount == 0:
                 # do not create next order on first 0 amount hit, so if first order is not created, also next not created
