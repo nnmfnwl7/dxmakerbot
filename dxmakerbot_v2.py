@@ -1039,8 +1039,8 @@ def virtual_orders__cancel_all():
         for i in range(s.ordersvirtualmax):
             # try to find match between session and existing orders and clear it
             for z in ordersopen:
-                # clear orders which are opened and match by id
-                if z['status'] == "open" and z['id'] == d.ordersvirtual[i]['id']:
+                # clear orders which are new or opened and match by id
+                if (z['status'] == "open" or z['status'] == 'new') and z['id'] == d.ordersvirtual[i]['id']:
                     print('>>>> Clearing virtual order index <{0}> id <{1}> and waiting for be done...'.format(i, z['id']))
                     dxbottools.rpc_connection.dxCancelOrder(z['id'])
                     clearing += 1
@@ -1073,12 +1073,18 @@ def virtual_orders__check_status_update_status():
         if d.ordersvirtual[i]['id'] != 0:
             # check how many virtual open orders finished
             order = lookup_order_id_2(d.ordersvirtual[i]['id'], ordersopen)
+            
+            #debug log
             print('>>>> Order <{}> sell maker <{}> amount <{}> to buy taker <{}> amount <{}> status original <{}> to actual <{}> id <{}> market price <{}> order price <{}> description <{}>'
             .format(d.ordersvirtual[i]['vid'], d.ordersvirtual[i]['maker'], d.ordersvirtual[i]['maker_size'], d.ordersvirtual[i]['taker'], d.ordersvirtual[i]['taker_size'], 
             d.ordersvirtual[i]['status'], (order['status'] if (order is not None) else 'no status'), d.ordersvirtual[i]['id'], d.ordersvirtual[i]['market_price'], d.ordersvirtual[i]['order_price'], d.ordersvirtual[i]['name'] ))
             
+            # if virtual order is clear but order is still in progress skip this order as finished order
+            if d.ordersvirtual[i]['status'] == 'clear':
+                continue
+            
             # if previous status was not finished or clear and now finished is or was taken by takerbot, count this order in finished number
-            if d.ordersvirtual[i]['status'] != 'finished' and d.ordersvirtual[i]['status'] != 'clear':
+            if d.ordersvirtual[i]['status'] != 'finished':
                 if (order is not None) and order['status'] == 'finished':
                     d.ordersfinished += 1
                     d.ordersfinishedtime = time.time()
@@ -1086,16 +1092,21 @@ def virtual_orders__check_status_update_status():
                     d.ordersfinished += 1
                     d.ordersfinishedtime = time.time()
             
+            # update "reopen finished feature" data
             events_wait_reopenfinished_update(d.ordersvirtual[i], order, feature__takerbot__virtual_order_was_taken_get(d.ordersvirtual[i]))
             
-            # update virtual order status
+            
+            # finally update virtual order status
+            # if order was taken by takerbot clear virtual order
             if feature__takerbot__virtual_order_was_taken_get(d.ordersvirtual[i]) == True:
                 virtual_orders__update_status(d.ordersvirtual[i], 'clear', ifnot = ['clear'])
                 feature__takerbot__virtual_order_was_taken_set(d.ordersvirtual[i], False)
-            elif order is not None:
-                virtual_orders__update_status(d.ordersvirtual[i], order['status'], ifnot = ['clear'])
-            else:
+            # if order does not exist clear virtual order
+            elif order is None:
                 virtual_orders__update_status(d.ordersvirtual[i], 'clear', ifnot = ['clear'])
+            # else update status of virtual order to existing order status
+            else:
+                virtual_orders__update_status(d.ordersvirtual[i], order['status'], ifnot = ['clear'])
 
 # update information needed by reopen after finish feature to know how many orders are opened and how many finished
 def events_wait_reopenfinished_update(virtual_order, actual_order, finished_by_takerbot):
