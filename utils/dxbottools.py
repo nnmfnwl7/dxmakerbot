@@ -45,7 +45,7 @@ def cancelallorders():
   # cancel all my open orders
   myorders = rpc_connection.dxGetMyOrders()
   for z in myorders:
-    if z['status'] == "open":
+    if z['status'] == "open" or z['status'] == "new":
       results = rpc_connection.dxCancelOrder(z['id'])
       time.sleep(3.5)
       print (results)
@@ -55,7 +55,7 @@ def cancelallordersbymarket(maker, taker):
   # cancel all my open orders
   myorders = getopenordersbymarket(maker, taker)
   for z in myorders:
-    if z['status'] == "open":
+    if z['status'] == "open" or z['status'] == "new":
       results = rpc_connection.dxCancelOrder(z['id'])
       time.sleep(3.5)
       print (results)

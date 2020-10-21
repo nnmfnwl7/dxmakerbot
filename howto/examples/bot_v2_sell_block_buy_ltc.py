@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import subprocess
-
 # ~ MIT License
 
 # ~ Copyright (c) 2020 FAZER
@@ -169,8 +167,3 @@ botconfig = str(
     "--delayinternalcycle 8"
 
 )
-
-botconfig = botconfig.replace(" --", "--")
-botconfig = botconfig.replace("--", " --")
-
-subprocess.run("python3 dxmakerbot_v2.py" + botconfig, shell=True)
