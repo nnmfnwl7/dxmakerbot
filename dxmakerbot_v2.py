@@ -68,6 +68,8 @@ def init_preconfig():
     
     global_vars_init_preconfig()
     
+    feature__balance_save_asset__init_preconfig()
+    
     pricing_storage__init_preconfig()
     
     feature__boundary__init_preconfig()
@@ -182,6 +184,8 @@ def feature__slide_dynamic__init_preconfig():
     global c, s, d
     
     d.dynamic_slide = 0
+    
+    d.feature__slide_dynamic__zero_asset_price = 0
 
 def feature__takerbot__init_preconfig():
     global c, s, d
@@ -351,42 +355,51 @@ def load_config_verify_or_exit():
         print('**** ERROR, <boundary_max_static> value <{0}> can not be less than <boundary_min_static> value <{1}>.'.format(c.BOTboundary_max_static, c.BOTboundary_min_static))
         error_num += 1
     
-    if c.BOTbalancesavenumber < 0:
-        print('**** ERROR, <balancesavenumber> value <{0}> is invalid'.format(c.BOTbalancesavenumber))
+    if c.BOTbalance_save_number < 0:
+        print('**** ERROR, <balance_save_number> value <{0}> is invalid'.format(c.BOTbalance_save_number))
         error_num += 1
     
-    if c.BOTbalancesavepercent < 0 or c.BOTbalancesavepercent > 1:
-        print('**** ERROR, <balancesavepercent> value <{0}> is invalid'.format(c.BOTbalancesavepercent))
+    if c.BOTbalance_save_percent < 0 or c.BOTbalance_save_percent > 1:
+        print('**** ERROR, <balance_save_percent> value <{0}> is invalid'.format(c.BOTbalance_save_percent))
         error_num += 1
     
     # arguments: dynamic values, special pump/dump order
-    if c.BOTslidedynzero != -1:
-        if c.BOTslidedyntype == 'ratio' and (c.BOTslidedynzero > 1 or c.BOTslidedynzero < 0):
-            print('**** ERROR, <slidedynzero> value <{0}> is invalid'.format(c.BOTslidedynzero))
+    if c.BOTslide_dyn_zero != -1:
+        if c.BOTslide_dyn_type == 'ratio' and (c.BOTslide_dyn_zero > 1 or c.BOTslide_dyn_zero < 0):
+            print('**** ERROR, <slide_dyn_zero> value <{0}> is invalid'.format(c.BOTslide_dyn_zero))
             error_num += 1
             
-        if c.BOTslidedyntype == 'static' and (c.BOTslidedynzero <= 0):
-            print('**** ERROR, <slidedynzero> value <{0}> is invalid'.format(c.BOTslidedynzero))
+        if c.BOTslide_dyn_type == 'static' and (c.BOTslide_dyn_zero <= 0):
+            print('**** ERROR, <slide_dyn_zero> value <{0}> is invalid'.format(c.BOTslide_dyn_zero))
+            error_num += 1
+            
+    if c.BOTslide_dyn_zero_asset is not None:
+        if c.BOTslide_dyn_type == 'ratio':
+            print('**** ERROR, <slide_dyn_type> value <{0}> can not be set with <slide_dyn_zero_asset>'.format(c.BOTslide_dyn_type))
+            error_num += 1
+            
+        if c.BOTslide_dyn_zero == -1:
+            print('**** ERROR, <BOTslide_dyn_zero> value <{0}> can not be set with <slide_dyn_zero_asset>'.format(c.BOTslide_dyn_zero))
             error_num += 1
     
-    if c.BOTslidedynpositive < 0:
-        print('**** WARNING, <slidedynpositive> value <{0}> seems invalid'.format(c.BOTslidedynpositive))
+    if c.BOTslide_dyn_positive < 0:
+        print('**** WARNING, <slide_dyn_positive> value <{0}> seems invalid'.format(c.BOTslide_dyn_positive))
         print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
             
-    if c.BOTslidedynnegative < 0:
-        print('**** WARNING, <slidedynnegative> value <{0}> seems invalid'.format(c.BOTslidedynnegative))
+    if c.BOTslide_dyn_negative < 0:
+        print('**** WARNING, <slide_dyn_negative> value <{0}> seems invalid'.format(c.BOTslide_dyn_negative))
         print('++++ HINT, If you are really sure about what you are doing, you can ignore this warning by using --imreallysurewhatimdoing argument')
         if not c.imreallysurewhatimdoing:
             error_num += 1
         
-    if c.BOTslidedynzoneignore < 0 or c.BOTslidedynzoneignore > 1:
-        print('**** ERROR, <slidedynzoneignore> value <{0}> is invalid'.format(c.BOTslidedynzoneignore))
+    if c.BOTslide_dyn_zoneignore < 0 or c.BOTslide_dyn_zoneignore > 1:
+        print('**** ERROR, <slide_dyn_zoneignore> value <{0}> is invalid'.format(c.BOTslide_dyn_zoneignore))
         error_num += 1
     
-    if c.BOTslidedynzonemax <= 0 or c.BOTslidedynzonemax > 1:
-        print('**** ERROR, <slidedynzonemax> value <{0}> is invalid'.format(c.BOTslidedynzonemax))
+    if c.BOTslide_dyn_zonemax <= 0 or c.BOTslide_dyn_zonemax > 1:
+        print('**** ERROR, <slide_dyn_zonemax> value <{0}> is invalid'.format(c.BOTslide_dyn_zonemax))
         error_num += 1
     
     if c.BOTslidepump < 0:
@@ -524,12 +537,16 @@ def load_config():
     parser.add_argument('--boundary_min_nocancel', help='do not cancel orders, default is to cancel orders', action='store_true')
     parser.add_argument('--boundary_min_noexit', help='wait instead of exit program, default is to exit program', action='store_true')
     
-    parser.add_argument('--balancesavenumber', help='min taker balance you want to save and do not use for making orders specified by number (default=0)', default=0)
-    parser.add_argument('--balancesavepercent', help='min taker balance you want to save and do not use for making orders specified by percent of maker+taker balance (default=0.05 means 5%%)', default=0.05)
+    parser.add_argument('--balance_save_asset', type=str, help='size of balance to save is set in specific asset instead of maker (default=--maker)', default=None)
+    parser.add_argument('--balance_save_asset_track', type=argparse_bool, nargs='?', const=True, help='Track balance save asset price updates. This means, ie if trading BLOCK/BTC on USD also track USD/BLOCK price and update balance to save by it (default=False disabled)', default=False)
+    parser.add_argument('--balance_save_number', help='min taker balance you want to save and do not use for making orders specified by number (default=0)', default=0)
+    parser.add_argument('--balance_save_percent', help='min taker balance you want to save and do not use for making orders specified by percent of maker+taker balance (default=0.05 means 5%%)', default=0.05)
 
     # arguments: dynamic values, special pump/dump order
-    parser.add_argument('--slidedyntype', type=str, choices=['ratio', 'static'], help='maker*price:taker ratio when dynamic slide intensity is 0. Or static value in maker when dynamic slide intensity is 0 (default=ratio)', default='ratio')
-    parser.add_argument('--slidedynzero', type=float, help=
+    parser.add_argument('--slide_dyn_type', type=str, choices=['ratio', 'static'], help='maker*price:taker ratio when dynamic slide intensity is 0. Or static value in maker when dynamic slide intensity is 0 (default=ratio)', default='ratio')
+    parser.add_argument('--slide_dyn_zero_asset', type=str, help='dynamic slide zero is set in specific asset instead of maker (default=--maker)', default=None)
+    parser.add_argument('--slide_dyn_zero_asset_track', type=argparse_bool, nargs='?', const=True, help='track dynamic slide zero asset price updates. This means, ie if trading BLOCK/BTC on USD also track USD/BLOCK price and update dynamic slide zero by it (default=False disabled)', default=False)
+    parser.add_argument('--slide_dyn_zero', type=float, help=
     'Ratio value or static specific value when dynamic slide intensity is 0%%.'
     ' Value -1 means to autoconfig value to intensity be 0%% for bot startup MAKER/TAKER amounts.'
     ' Otherwise it means maker/taker ratio where dynamic slide is at 0%% intensity.'
@@ -538,14 +555,14 @@ def load_config():
     ' 0 means 0%% intensity at 100%% of balance in MAKER.'
     ' Static value means static amount of maker where dynamic slide intensity is at 0%%.'
     '(default= 0.5 means 50:50 balance)', default=0.5)
-    parser.add_argument('--slidedynpositive', type=float, help='dynamic price slide increase positive, applied if maker price goes up, range between 0 and slidedynpositive, dynamically computed by assets ratio.'
+    parser.add_argument('--slide_dyn_positive', type=float, help='dynamic price slide increase positive, applied if maker price goes up, range between 0 and slide_dyn_positive, dynamically computed by assets ratio.'
     'I.e. 0.5 means slide increase +0%% up to +50%%'
     '(default=0 disabled)', default=0)
-    parser.add_argument('--slidedynnegative', type=float, help='dynamic price slide increase negative, applied if maker price goes down, range between 0 and slidedynnegative, dynamically computed by assets ratio.'
+    parser.add_argument('--slide_dyn_negative', type=float, help='dynamic price slide increase negative, applied if maker price goes down, range between 0 and slide_dyn_negative, dynamically computed by assets ratio.'
     'I.e. 0.1 means slide increase +0%% up to +10%%'
     '(default=0 disabled)', default=0)
-    parser.add_argument('--slidedynzoneignore', type=float, help='dynamic price slide increase ignore is zone when dynamic slide is not activated(default=0.05 means 5%% of balance)', default=0.05)
-    parser.add_argument('--slidedynzonemax', type=float, help='percentage when dynamic order price slide increase gonna reach maximum(default=0.9 means at 90%%)', default=0.9)
+    parser.add_argument('--slide_dyn_zoneignore', type=float, help='dynamic price slide increase ignore is zone when dynamic slide is not activated(default=0.05 means 5%% of balance)', default=0.05)
+    parser.add_argument('--slide_dyn_zonemax', type=float, help='percentage when dynamic order price slide increase gonna reach maximum(default=0.9 means at 90%%)', default=0.9)
     
     parser.add_argument('--slidepump', type=float, help='if slide pump is non zero a special order out of slidemax is set, this order will be filled when pump happen(default=0 disabled, 0.5 means order will be placed +50%% out of maximum slide)', default=0)
     parser.add_argument('--pumpamount', type=float, help='pump order size, otherwise sellend is used(default=--sellend)', default=0)
@@ -651,18 +668,28 @@ def load_config():
     
     # ~ c.BOTmarking = float(args.marking)
     
-    c.BOTbalancesavenumber = float(args.balancesavenumber)
-    c.BOTbalancesavepercent = float(args.balancesavepercent)
+    if args.balance_save_asset is None:
+        c.BOTbalance_save_asset = c.BOTsellmarket
+    else:
+        c.BOTbalance_save_asset = str(args.balance_save_asset)
+    c.BOTbalance_save_asset_track = bool(args.balance_save_asset_track)
+    c.BOTbalance_save_number = float(args.balance_save_number)
+    c.BOTbalance_save_percent = float(args.balance_save_percent)
     
     c.BOTtakerbot = int(args.takerbot)
     
     # arguments: dynamic values, special pump/dump order
-    c.BOTslidedyntype = str(args.slidedyntype)
-    c.BOTslidedynzero = float(args.slidedynzero)
-    c.BOTslidedynpositive = float(args.slidedynpositive)
-    c.BOTslidedynnegative = float(args.slidedynnegative)
-    c.BOTslidedynzoneignore = float(args.slidedynzoneignore)
-    c.BOTslidedynzonemax = float(args.slidedynzonemax)
+    if args.slide_dyn_zero_asset is None:
+        c.BOTslide_dyn_zero_asset = c.BOTsellmarket
+    else:
+        c.BOTslide_dyn_zero_asset = str(args.slide_dyn_zero_asset)
+    c.BOTslide_dyn_zero_asset_track = bool(args.slide_dyn_zero_asset_track)
+    c.BOTslide_dyn_type = str(args.slide_dyn_type)
+    c.BOTslide_dyn_zero = float(args.slide_dyn_zero)
+    c.BOTslide_dyn_positive = float(args.slide_dyn_positive)
+    c.BOTslide_dyn_negative = float(args.slide_dyn_negative)
+    c.BOTslide_dyn_zoneignore = float(args.slide_dyn_zoneignore)
+    c.BOTslide_dyn_zonemax = float(args.slide_dyn_zonemax)
     
     c.BOTslidepump = float(args.slidepump)
     c.BOTslidepumpenabled = (True if c.BOTslidepump > 0 else False)
@@ -764,6 +791,18 @@ def pricing_check_or_exit():
         print('#### Main pricing not available')
         sys.exit(1)
     
+    # try to get initial price of asset which balance save size is set in
+    price__balance_save_asset = feature__balance_save_asset__pricing_update()
+    if price__balance_save_asset == 0:
+        print('#### balance save asset pricing not available')
+        sys.exit(1)
+    
+    # try to get initial price of asset vs maker in which is dynamic slide zero set
+    price_slide_dynamic_zero_asset = feature__slide_dynamic__zero_asset_pricing_update()
+    if price_slide_dynamic_zero_asset == 0:
+        print('#### dynamic slide zero asset pricing not available')
+        sys.exit(1)
+    
     # try to get initial price of asset vs maker in which are orders sizes set, ie USD
     price_sell_size_asset = feature__sell_size_asset__pricing_update()
     if price_sell_size_asset == 0:
@@ -775,6 +814,44 @@ def pricing_check_or_exit():
     if price_boundary == 0:
         print('#### Boundary pricing not available')
         sys.exit(1)
+
+# asset which dynamic slide zero size is set in pricing update
+def feature__slide_dynamic__zero_asset_pricing_update():
+    global c, s, d
+    
+    temp_price = pricing_storage__try_get_price(c.BOTslide_dyn_zero_asset, c.BOTsellmarket)
+    if temp_price != 0:
+        d.feature__slide_dynamic__zero_asset_price = temp_price
+    
+    return temp_price
+
+# convert asset which dynamic slide zero size is set to maker 
+def feature__slide_dynamic__zero_asset_convert_to_maker(size_in_slide_dyn_zero_asset):
+    global c, s, d
+    
+    return d.feature__slide_dynamic__zero_asset_price * size_in_slide_dyn_zero_asset
+    
+# price of asset which balance save size is set in initialization
+def feature__balance_save_asset__init_preconfig():
+    global c, s, d
+    
+    d.feature__balance_save_asset__price = 0
+
+# price of asset which balance save size is set in pricing update
+def feature__balance_save_asset__pricing_update():
+    global c, s, d
+    
+    temp_price = pricing_storage__try_get_price(c.BOTbalance_save_asset, c.BOTsellmarket)
+    if temp_price != 0:
+        d.feature__balance_save_asset__price = temp_price
+    
+    return temp_price
+
+# convert asset which balance save size is set to maker 
+def feature__balance_save_asset__convert_to_maker(size_in_balance_save_asset):
+    global c, s, d
+    
+    return d.feature__balance_save_asset__price * size_in_balance_save_asset
 
 # get price of asset vs maker in which are orders sizes set, ie USD
 def feature__sell_size_asset__pricing_update():
@@ -894,27 +971,27 @@ def feature__slide_dynamic__init_postpricing():
     balance_taker_in_maker = (d.balance_taker_total / d.price_maker) #convert taker balance to by price
     balance_total = d.balance_maker_total + balance_taker_in_maker
     
-    if c.BOTslidedyntype == 'ratio':
-        if c.BOTslidedynzero == -1:
+    if c.BOTslide_dyn_type == 'ratio':
+        if c.BOTslide_dyn_zero == -1:
             if balance_total == 0:
-                c.BOTslidedynzero = 0.5
+                c.BOTslide_dyn_zero = 0.5
             else:
-                c.BOTslidedynzero = d.balance_maker_total / balance_total
+                c.BOTslide_dyn_zero = d.balance_maker_total / balance_total
             
-            print('>>>> dynamic slide initialization auto-set <ratio> zero intensity at value <{0}>'.format(c.BOTslidedynzero))
+            print('>>>> dynamic slide initialization auto-set <ratio> zero intensity at value <{0}>'.format(c.BOTslide_dyn_zero))
         else:
-            print('>>>> dynamic slide initialization manu-set <ratio> zero intensity at value <{0}>'.format(c.BOTslidedynzero))
-    elif c.BOTslidedyntype == 'static':
-        if c.BOTslidedynzero == -1:
-            c.BOTslidedynzero = d.balance_maker_total
-            print('>>>> dynamic slide initialization auto-set <static> zero intensity at value <{0}>'.format(c.BOTslidedynzero))
-            if c.BOTslidedynzero == 0:
-                print('!!!! Invalid auto configuration <BOTslidedynzero> is <{0}>'.format(c.BOTslidedynzero))
+            print('>>>> dynamic slide initialization manu-set <ratio> zero intensity at value <{0}>'.format(c.BOTslide_dyn_zero))
+    elif c.BOTslide_dyn_type == 'static':
+        if c.BOTslide_dyn_zero == -1:
+            c.BOTslide_dyn_zero = d.balance_maker_total
+            print('>>>> dynamic slide initialization auto-set <static> zero intensity at value <{0}>'.format(c.BOTslide_dyn_zero))
+            if c.BOTslide_dyn_zero == 0:
+                print('!!!! Invalid auto configuration <BOTslide_dyn_zero> is <{0}>'.format(c.BOTslide_dyn_zero))
                 sys.exit(1)
         else:
-            print('>>>> dynamic slide initialization manu-set <static> zero intensity at value <{0}>'.format(c.BOTslidedynzero))
+            print('>>>> dynamic slide initialization manu-set <static> zero intensity at value <{0}>'.format(c.BOTslide_dyn_zero))
     else:
-        print('!!!! internal BUG Detected <BOTslidedyntype> is <{0}>'.format(c.BOTslidedyntype))
+        print('!!!! internal BUG Detected <BOTslide_dyn_type> is <{0}>'.format(c.BOTslide_dyn_type))
         sys.exit(1)
         
 # get <ratio> dynamic slide intensity
@@ -929,7 +1006,7 @@ def feature__slide_dynamic__get_intensity__ratio():
     if balance_total == 0:
         slide_dynamic_intensity = 0
     else:
-        slide_dynamic_intensity = ((c.BOTslidedynzero * balance_total) - d.balance_maker_total) / ((c.BOTslidedynzero * balance_total) * c.BOTslidedynzonemax)
+        slide_dynamic_intensity = ((c.BOTslide_dyn_zero * balance_total) - d.balance_maker_total) / ((c.BOTslide_dyn_zero * balance_total) * c.BOTslide_dyn_zonemax)
     
     return slide_dynamic_intensity
     
@@ -937,7 +1014,9 @@ def feature__slide_dynamic__get_intensity__ratio():
 def feature__slide_dynamic__get_intensity__static():
     global c, s, d
     
-    slide_dynamic_intensity = (c.BOTslidedynzero - d.balance_maker_total) / (c.BOTslidedynzero * c.BOTslidedynzonemax)
+    tmp_bot_slide_dyn_zero = feature__slide_dynamic__zero_asset_convert_to_maker(c.BOTslide_dyn_zero)
+    
+    slide_dynamic_intensity = (tmp_bot_slide_dyn_zero - d.balance_maker_total) / (tmp_bot_slide_dyn_zero * c.BOTslide_dyn_zonemax)
     
     return slide_dynamic_intensity
     
@@ -947,12 +1026,12 @@ def feature__slide_dynamic__get_intensity():
     
     slide_dynamic_intensity = 0
     
-    if c.BOTslidedyntype == 'ratio':
+    if c.BOTslide_dyn_type == 'ratio':
         slide_dynamic_intensity = feature__slide_dynamic__get_intensity__ratio()
-    elif c.BOTslidedyntype == 'static':
+    elif c.BOTslide_dyn_type == 'static':
         slide_dynamic_intensity = feature__slide_dynamic__get_intensity__static()
     else:
-        print('!!!! internal BUG Detected <BOTslidedyntype> is <{0}>'.format(c.BOTslidedyntype))
+        print('!!!! internal BUG Detected <BOTslide_dyn_type> is <{0}>'.format(c.BOTslide_dyn_type))
         sys.exit(1)
         
     slide_dynamic_intensity = min(slide_dynamic_intensity, 1)
@@ -976,32 +1055,32 @@ def feature__slide_dynamic__update():
     # if price of TAKER(TO BUY) is going up, opposite BOT is selling more and more,
     # so this BOT have more and more MAKER(TO SELL)
     # in this case you wanna buy TAKER by MAKER cheaper with smaller spread, but with possible market overturn expectations
-    # for this case slidedynnegative argument is used
+    # for this case slide_dyn_negative argument is used
     #
     # if price of TAKER(TO BUY) is going down, opposite BOT is selling less and less,
     # also this BOT is buying more and more,
     # so this BOT have less and less MAKER(TO SELL)
-    # for this case slidedynpositive argument is used
+    # for this case slide_dyn_positive argument is used
     # 
     # dynamic_spread_intensity in general means how much intensity of
-    # slidedynnegative or slidedynpositive to use,
+    # slide_dyn_negative or slide_dyn_positive to use,
     # computation of dynamic spread is than:
-    # case 1 if price of TAKER(TO BUY) is going up = slidedynnegative * abs(dynamic_spread_intensity)
-    # case 2 if price of TAKER(TO BUY) is going down = slidedynpositive * dynamic_spread_intensity
+    # case 1 if price of TAKER(TO BUY) is going up = slide_dyn_negative * abs(dynamic_spread_intensity)
+    # case 2 if price of TAKER(TO BUY) is going down = slide_dyn_positive * dynamic_spread_intensity
     #
     # final spread(slide) than is gonna be sum of this-dynamic-spread and statically configured spread
     
     slide_dynamic_intensity = feature__slide_dynamic__get_intensity()
     
-    if abs(slide_dynamic_intensity) < c.BOTslidedynzoneignore:
+    if abs(slide_dynamic_intensity) < c.BOTslide_dyn_zoneignore:
         d.dynamic_slide = 0
-        print('>>>> Using dynamic_spread <{}> because slide_dynamic_intensity <{}> is in slidedynzoneignore <{}>'.format(d.dynamic_slide, slide_dynamic_intensity, c.BOTslidedynzoneignore))
+        print('>>>> Using dynamic_spread <{}> because slide_dynamic_intensity <{}> is in slide_dyn_zoneignore <{}>'.format(d.dynamic_slide, slide_dynamic_intensity, c.BOTslide_dyn_zoneignore))
     elif slide_dynamic_intensity > 0:
-        d.dynamic_slide = abs(slide_dynamic_intensity) * c.BOTslidedynpositive
-        print('>>>> Using dynamic_spread <{}> computed by slide_dynamic_intensity <{}> multiplied by slidedynpositive <{}>'.format(d.dynamic_slide, slide_dynamic_intensity, c.BOTslidedynpositive))
+        d.dynamic_slide = abs(slide_dynamic_intensity) * c.BOTslide_dyn_positive
+        print('>>>> Using dynamic_spread <{}> computed by slide_dynamic_intensity <{}> multiplied by slide_dyn_positive <{}>'.format(d.dynamic_slide, slide_dynamic_intensity, c.BOTslide_dyn_positive))
     elif slide_dynamic_intensity < 0:
-        d.dynamic_slide = abs(slide_dynamic_intensity) * c.BOTslidedynnegative
-        print('>>>> Using dynamic_spread <{}> computed by slide_dynamic_intensity <{}> multiplied by slidedynnegative <{}>'.format(d.dynamic_slide, slide_dynamic_intensity, c.BOTslidedynnegative))
+        d.dynamic_slide = abs(slide_dynamic_intensity) * c.BOTslide_dyn_negative
+        print('>>>> Using dynamic_spread <{}> computed by slide_dynamic_intensity <{}> multiplied by slide_dyn_negative <{}>'.format(d.dynamic_slide, slide_dynamic_intensity, c.BOTslide_dyn_negative))
         
     return d.dynamic_slide
 
@@ -1191,31 +1270,38 @@ def balance_available_to_sell_recompute(sell_amount_max=0, sell_amount_min=0):
     sell_amount = sell_amount - sell_amount_txfee
     sell_amount = max(sell_amount, 0)
     
-    #apply BOTbalancesavenumber if enabled
-    if c.BOTbalancesavenumber != 0:
+    #apply BOTbalance_save_number if enabled
+    if c.BOTbalance_save_number != 0:
+        balance_save_size = feature__balance_save_asset__convert_to_maker(c.BOTbalance_save_number)
         sell_amount_tmp = sell_amount
-        sell_amount = min(sell_amount, d.balance_maker_available - sell_amount_txfee - c.BOTbalancesavenumber)
+        sell_amount = min(sell_amount, d.balance_maker_available - sell_amount_txfee - balance_save_size)
         sell_amount = max(sell_amount, 0)
-        print('>>>> balancesavenumber {} apply, sell amount original {} new {}'.format(c.BOTbalancesavenumber, sell_amount_tmp, sell_amount))
+        print('>>>> balance_save_number {} apply, sell amount original {} new {}'.format(balance_save_size, sell_amount_tmp, sell_amount))
         
-    #apply BOTbalancesavepercent if enabled
-    if c.BOTbalancesavepercent != 0:
+    #apply BOTbalance_save_percent if enabled
+    if c.BOTbalance_save_percent != 0:
         sell_amount_tmp = sell_amount
-        sell_amount = min(sell_amount, d.balance_maker_available - sell_amount_txfee - (c.BOTbalancesavepercent * d.balance_maker_total))
+        sell_amount = min(sell_amount, d.balance_maker_available - sell_amount_txfee - (c.BOTbalance_save_percent * d.balance_maker_total))
         sell_amount = max(sell_amount, 0)
-        print('>>>> balancesavepercent {} apply, sell amount original {} new {}'.format(c.BOTbalancesavenumber, sell_amount_tmp, sell_amount))
+        print('>>>> balance_save_percent {} apply, sell amount original {} new {}'.format(c.BOTbalance_save_percent, sell_amount_tmp, sell_amount))
     
     # apply maximum amount if enabled
     if sell_amount_max != 0:
+        sell_amount_tmp = sell_amount
         sell_amount = min(sell_amount_max, sell_amount)
+        print('>>>> sell amount max {} apply, sell amount original {} new {}'.format(sell_amount_max, sell_amount_tmp, sell_amount))
     
     # apply minimum amount if enabled otherwise try to apply maximum as exact amount if enabled
     if sell_amount_min != 0:
+        sell_amount_tmp = sell_amount
         if sell_amount < sell_amount_min:
             sell_amount = 0
+        print('>>>> sell amount min {} apply, sell amount original {} new {}'.format(sell_amount_min, sell_amount_tmp, sell_amount))
     elif sell_amount_max != 0:
+        sell_amount_tmp = sell_amount
         if sell_amount_max != sell_amount:
             sell_amount = 0
+        print('>>>> strict sell amount max {} apply, sell amount original {} new {}'.format(sell_amount_max, sell_amount_tmp, sell_amount))
     
     # ~ if c.BOTmarking != 0:
         # ~ if sell_amount != 0:
@@ -1261,6 +1347,20 @@ def virtual_orders__prepare_recheck():
             break
         print('#### Pricing main not available... waiting to restore...')
         time.sleep(c.BOTdelayinternalerror)
+    
+    if c.BOTbalance_save_asset_track is True:
+        while True:
+            if feature__balance_save_asset__pricing_update() != 0:
+                break
+            print('#### Pricing of balance save asset not available... waiting to restore...')
+            time.sleep(c.BOTdelayinternalerror)
+    
+    if c.BOTslide_dyn_zero_asset_track is True:
+        while True:
+            if feature__slide_dynamic__zero_asset_pricing_update() != 0:
+                break
+            print('#### Pricing of dynamic slide zero asset not available... waiting to restore...')
+            time.sleep(c.BOTdelayinternalerror)
     
     while True:
         if feature__sell_size_asset__pricing_update() != 0:

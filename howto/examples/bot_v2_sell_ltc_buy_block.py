@@ -36,7 +36,12 @@ botconfig = str(
     # ~ "--address_only True"
 
 #do not save any maker balance
-    "--balancesavenumber 0 --balancesavepercent 0"
+    #set size of balance to save in alternative asset
+        # ~ "--balance_save_asset BLOCK"
+    #enable to track balance save asset price updates. This means, ie if trading BLOCK/BTC on USD also track USD/BLOCK price and update balance to save by it.
+        # ~ "--balance_save_asset_track True"
+    #set in absolute value or percentage how much maker to save(reserve)
+        "--balance_save_number 0 --balance_save_percent 0"
   
 #bot will try to create orders with dynamic size if there is no balance available to create order at maximum. but only between <value, min value>
 #also takerbot is accepting at least order with size in range between <value, min value>
@@ -94,7 +99,7 @@ botconfig = str(
     # ~ "--make_next_on_hit True"
 
 #enable or disable partial orders. Partial orders minimum is set by <sellstartmin> <sellendmin> along with dynamic size of orders(default=False disabled)
-    "--partial_orders True"
+    # ~ "--partial_orders True"
 
 #first order at price slide to 110%(if price is 1 USD final is 1.10 USD), second order with price slide 106.5% and last order with price slide to 103%
     "--slidestart 1.10 --slideend 1.03"
@@ -103,17 +108,22 @@ botconfig = str(
     "--slidepump 0 --pumpamount 0 --pumpamountmin 0"
 
 #enabled dynamic slide based on maker amount. Dynamic slide -1 means autoconfigured to value 0 at bot start with actual amount when bot started
-    "--slidedyntype static --slidedynzero -1"
+    #set dynamic slide zero value in alternative asset
+        # ~ "--slide_dyn_zero_asset BLOCK"
+    #enable to track dynamic slide zero asset price updates. This means, ie if trading BLOCK/BTC on USD also track USD/BLOCK price and update dynamic slide zero asset price by it.
+        # ~ "--slide_dyn_zero_asset_track True"
+    #set type of dynamic slide and dynamic slide zero value
+        "--slide_dyn_type static --slide_dyn_zero -1"
     #dynamic slide is ignored(not applied) when maker balance change -+0.2%. dynamic slide will reach max at +-80%
-        "--slidedynzoneignore 0.02 --slidedynzonemax 0.8"
+        "--slide_dyn_zoneignore 0.02 --slide_dyn_zonemax 0.8"
     #in case when selling more and more maker than opposite bot(if any), so balance of maker is less and less, means interest for maker is more and more, so prediction of maker price is will go up.
     #so order price can be increated more and more, so final price of last order can possibly reach value = price*(1.01+0.20)
-        "--slidedynpositive 0.20"
+        "--slide_dyn_positive 0.20"
     #in case when selling less and less maker than opposite bot(if any), so balance of maker is more and more, means interest for maker is less and less, so prediction of maker price is will go down.
     #handling #1 if this situation is, bot can be configured as expectation that price will go back. so bot will increase price in spite of interest of maker is going down.
-        "--slidedynnegative 0.15"
+        "--slide_dyn_negative 0.15"
     #handling #2 of this situation is, bot can be configured to slightly decrease final price of maker order.
-        # ~ "--slidedynnegative -0.01 --imreallysurewhatimdoing"
+        # ~ "--slide_dyn_negative -0.01 --imreallysurewhatimdoing"
 
 #recreate order when 2 orders are accepted
     "--reopenfinishednum 2"
@@ -165,5 +175,10 @@ botconfig = str(
     "--delayinternalerror 10"
 #sleep delay, in seconds, between main loops to process all things to handle
     "--delayinternalcycle 8"
+
+#use alternative coingecko insted of bittrex
+    # ~ "--usecg"
+#enable exceptions in configuration values
+    # ~ "--imreallysurewhatimdoing"
 
 )
