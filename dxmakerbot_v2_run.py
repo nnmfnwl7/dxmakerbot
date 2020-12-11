@@ -64,26 +64,21 @@ if __name__ == '__main__':
         # run dxmakerbot
         print("[I] starting dxmakerbot")
         result = subprocess.run("python3 dxmakerbot_v2.py" + botconfig, shell=True)
-        
-        # if dxmakerbot process exit with error try to cancel all existing orders
-        if result.returncode != 0:
-            
-            while 1:
-                # cancel all orders
-                print("[I] dxmakerbot crashed, clearing open orders")
-                result2 = subprocess.run("python3 dxmakerbot_v2.py" + botconfig + " --cancelmarket", shell=True)
-                
-                # check if cancel all orders success or try to do it again
-                if result2.returncode == 0:
-                    break
-                
-                # wait a while on error to try again
-                time.sleep(3)
-        
         # if dxmakerbot process exit success exit program
         if result.returncode == 0:
             break
-            
+        
+        # if dxmakerbot process exit with error try to cancel all existing orders
+        while 1:
+            # cancel all orders
+            print("[I] dxmakerbot crashed, clearing open orders")
+            result2 = subprocess.run("python3 dxmakerbot_v2.py" + botconfig + " --cancelmarket", shell=True)
+            # check if cancel all orders success or try to do it again
+            if result2.returncode == 0:
+                break
+            # wait a while on error to try again
+            time.sleep(3)
+        
         # wait a while
         time.sleep(3)
         
