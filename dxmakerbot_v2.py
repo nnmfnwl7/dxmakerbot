@@ -373,13 +373,13 @@ def load_config_verify_or_exit():
             print('**** ERROR, <slide_dyn_zero> value <{0}> is invalid'.format(c.BOTslide_dyn_zero))
             error_num += 1
             
-    if c.BOTslide_dyn_zero_asset is not None:
+    if c.BOTslide_dyn_zero_asset is not c.BOTsellmarket:
         if c.BOTslide_dyn_type == 'ratio':
-            print('**** ERROR, <slide_dyn_type> value <{0}> can not be set with <slide_dyn_zero_asset>'.format(c.BOTslide_dyn_type))
+            print('**** ERROR, <slide_dyn_type> value <{0}> can not be set with custom <slide_dyn_zero_asset>'.format(c.BOTslide_dyn_type))
             error_num += 1
             
         if c.BOTslide_dyn_zero == -1:
-            print('**** ERROR, <BOTslide_dyn_zero> value <{0}> can not be set with <slide_dyn_zero_asset>'.format(c.BOTslide_dyn_zero))
+            print('**** ERROR, <slide_dyn_zero> value <{0}> can not be set with custom <slide_dyn_zero_asset>'.format(c.BOTslide_dyn_zero))
             error_num += 1
     
     if c.BOTslide_dyn_positive < 0:
