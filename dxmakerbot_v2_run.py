@@ -33,8 +33,12 @@ if __name__ == '__main__':
     # parse configuration argument
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, help='python configuration file', default=None)
+    parser.add_argument('--cancelall', help='cancel all orders and exit', action='store_true')
+    parser.add_argument('--cancelmarket', help='cancel all orders in market specified by --config file pair', action='store_true')
     args = parser.parse_args()
     config = args.config
+    cancelall = args.cancelall
+    cancelmarket = args.cancelmarket
     
     # check if configuration argument is set
     if config is None:
@@ -56,14 +60,21 @@ if __name__ == '__main__':
     # update configuration to be valid
     botconfig = cfg.botconfig.replace(" --", "--")
     botconfig = botconfig.replace("--", " --")
-
+    
+    # check if cancel all or market orders orders
+    cancel_orders_arg = ""
+    if cancelall:
+        cancel_orders_arg = "--cancelall"
+    elif cancelmarket:
+        cancel_orders_arg = "--cancelmarket"
+        
     # run dxmakerbot process:
     # case1: if exception rises, try to recover from situation, cancel all open orders and restart dxmakerbot process again
     # case2: if exit success, exit program
     while 1:
         # run dxmakerbot
         print("[I] starting dxmakerbot")
-        result = subprocess.run("python3 dxmakerbot_v2.py" + botconfig, shell=True)
+        result = subprocess.run("python3 dxmakerbot_v2.py" + botconfig + " " + cancel_orders_arg, shell=True)
         # if dxmakerbot process exit success exit program
         if result.returncode == 0:
             break
