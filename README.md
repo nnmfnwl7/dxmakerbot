@@ -17,7 +17,7 @@ A market making bot for Blocknet's decentralized exchange protocol, built with t
 ## Prerequisites
 1. [Latest Blocknet wallet installed](https://github.com/blocknetdx/blocknet/releases/latest).
 1. The wallet of any assets you will be trading. See list of [compatible assets](https://docs.blocknet.co/protocol/xbridge/compatibility/#supported-digital-assets).
-1. The Blocknet wallet and any other wallet you're trading out of must but fully synced and fully unlocked.
+1. The Blocknet wallet and any other wallet you're trading out of must be fully synced and fully unlocked.
 1. The wallets used for trading must be configured. For simple setup, use [Block DX's automated configuration setup wizard](https://docs.blocknet.co/blockdx/configuration/). Having Block DX installed and opened is also useful to visually monitor the market and your open orders.
 1. Make sure funds are split into multiple UTXOs. If you have an order for 1 LTC and you only have a single 10 LTC input, all 10 LTC will be locked in this order. Having multiple, preferably smaller, UTXOs will allow a better distribution of funds across orders.
 1. Make sure funds are in legacy addresses (Eg. LTC funds should be in a "L" address).
@@ -256,10 +256,10 @@ Flag                        | Description
 --boundary_asset_track      | track boundary asset price updates. This means, ie if trading BLOCK/BTC on USD also track USD/BTC price and update boundaries by it (default=False disabled)
 --boundary_reversed_pricing | reverse pricing as 1/X, ie BLOCK/BTC vs BTC/BLOCK pricing can set like 0.000145 on both bot trading sides, instead of 0.000145 vs 6896.55.
 --boundary_start_price      | manually set center price. Its usable only when using relative boundaries and boundary_asset_track is Disabled (default=0 automatic)
---boundary_max_relative     | maximum acceptable price of maker payed by taker which bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:3, so bot will work up to 100*3 = 300 price, (default=0 disabled)
---boundary_min_relative     | minimum acceptable price of maker payed by taker which bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:0.8, so bot will sell at least for 100*0.8 = 80 price, (default=0 disabled)
---boundary_max_static       | maximum acceptable price which bot will work with(default=0 disabled)
---boundary_min_static       | minimum acceptable price which bot will work with(default=0 disabled)
+--boundary_max_relative     | maximum acceptable price of maker payed by taker which the bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:3, so bot will work up to 100*3 = 300 price, (default=0 disabled)
+--boundary_min_relative     | minimum acceptable price of maker payed by taker which the bot will work with, price is relative to price when bot started,i.e.: Start price:100, config value:0.8, so bot will sell at least for 100*0.8 = 80 price, (default=0 disabled)
+--boundary_max_static       | maximum acceptable price which the bot will work with(default=0 disabled)
+--boundary_min_static       | minimum acceptable price which the bot will work with(default=0 disabled)
 --boundary_max_nocancel     | do not cancel orders, default is to cancel orders (default cancel orders)
 --boundary_max_noexit       | wait instead of exit program, default is to exit program (default exit bot)
 --boundary_min_nocancel     | do not cancel orders, default is to cancel orders (default cancel orders)
@@ -302,60 +302,60 @@ Flag           | Description
 `*` = optional
 
 ### Example situation no. 1 and corresponding command:
-- Let say, user is running Blocknet wallet with address blck0123456789blck and all his staked and masternode rewards coins go to this address.
-- Let say, user want to automatically sell all staked Blocknet coins for Litecoin which wallet is using address lite0123456789lite.
-- So user uses dxmakerbor config like this:
+- Lets say, the user is running a Blocknet wallet with address blck0123456789blck, all his Stakes and Service Node rewards go to this address.
+- Lets say, the user wants to automatically sell all staked BLOCK for Litecoin, and the LTC wallet is using address lite0123456789lite.
+- So the user configures dxmakerbot like this:
 ```
 --maker BLOCK --makeraddress blck0123456789blck --taker LTC --takeraddress lite0123456789lite
 ```
 
-- Let say, most effective to sell Blocknet is at minimum amount of 10 block because of high fees on Litecoin. So bot needs to be configured to open orders of minimum at 10 Blocknet coins.
-- Let say, user know that time to time blocknet price goes about 22% up and down and he wants to cover whole pricing by using staggered orders.
-- Let say, user also wants to staggered orders been in valley mode, means placing small orders with 10BLOCK nearest to center-price at +3% up to last order at 100BLOCK at +22%
-- Let say, user wants always place higher orders first for the case of insufficient funds.
+- Lets say, the most efficient way to sell BLOCK is at a minimum amount of 10 BLOCK due to high fees on Litecoin. So the bot needs to be configured to open orders at a minimum of 10 BLOCK.
+- Lets say, the user knows that occasionally the BLOCK price fluctuates ~22% and he wants to cover the whole fluctuations by using staggered orders.
+- Lets say, the user also wants to stagger orders in valley mode, placing small orders with 10 BLOCK nearest to center-price at +3% up to last order at 100 BLOCK at +22%
+- Lets say, the user wants always place higher orders first for the case of insufficient funds.
 - So used uses dxmakerbot config like this:
 ```
 --sellstart 100 --sellend 10 --slidestart 1.22 --slideend 1.03
 ```
 
-- Let say, user wants to have opened maximum 5 orders between that 22% and 3%
+- Lets say, the user wants to have a maximum of 5 orders between that 22% and 3%.
 ```
 --maxopen 5
 ```
 
-- Let say, user know that price time to time goes to pump at +40% so he wants to cover that case by one order at +38%
+- Lets say, the user knows that that occasionally the BLOCK price pumps to +40%, so he wants to cover that case by one order at +38%.
 ```
 --slidepump 0.38
 ```
 
-- Let say, user rather wait for 2 staggered orders to be finished than reopen low price one order
-- Let say, but if not multiple orders will finish at time of 10 minutes, all orders goes to reset
+- Lets say, the user would rather wait for 2 staggered orders to be finished than reopen at a low price on one order.
+- Lets say, that if all of the orders don't finish within 10 minutes, all orders are reset.
 ```
 --reopenfinishednum 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600
 ```
 
-- Let say, user always wants to have some little 2 blocknets save on his wallet
+- Lets say, the user always wants to have at least 2 BLOCK available, excluded from orders or trades
 ```
 --balancesavenumber 2 --balancesavepercent 0
 ```
 
-- Let say, user always wants to check of price changes and reset all orders at +3% of price change.
-- But if price goes down, he knows its only correction, and price downtrend must be followed by at least 8% dump.
+- Lets say, the user wants to check for price changes and reset all orders after a +3% price change.
+- But if the price goes down, he knows it's only a correction, and the price downtrend must be followed by at least an 8% dump.
 ```
 --resetonpricechangepositive 0.03 --resetonpricechangenegative 0.08
 ```
 
-- Let say, user is running multiple bots and have low internet connection, so he decide to give all internal operation time 15 seconds
+- Lets say, the user is running multiple bots and has a slow internet connection, so he decides to give all internal operation time 15 seconds
 ```
 --delayinternal 15
 ```
 
-- Let say, rechecking price source very often will cause client dxmakerbot been banned for a few minutes, so user decide to check price only once per 2 minutes
+- Lets say, re-checking the price source very often will cause the dxmakerbot client to be banned or rate-limited for a few minutes, so the user decides to check price only once, every 2 minutes
 ```
 --delaycheckprice 120
 ```
 
-Corresponding command for example situation no. 1:
+The corresponding command for example situation no. 1 is:
 ```
 python3 dxmakerbot_v2.py --maker BLOCK --makeraddress blck0123456789blck --taker LTC --takeraddress lite0123456789lite --sellstart 100 --sellend 10 --slidestart 1.22 --slideend 1.03 --maxopen 5 --reopenfinishednum 0 --balancesavenumber 2 --balancesavepercent 0 --slidedynpositive 0.0 --slidedynnegative 0.0 --slidedynzoneignore 0.05 --slidedynzonemax 0.9 --slidepump 0.38 --resetonpricechangepositive 0.03 --resetonpricechangenegative 0.08 --resetafterdelay 0 --resetafterorderfinishnumber 2 --resetafterorderfinishdelay 600 --delayinternal 15 --delaycheckprice 120
 ```
