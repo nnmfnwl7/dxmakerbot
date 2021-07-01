@@ -745,24 +745,48 @@ def global_vars_init_postconfig():
         d.ordersvirtual[i]['id'] = 0
     
 
-def do_utils_cancel_market():
+def do_utils_cancel_orders_all():
     global c, s, d
-    print('>>>> Using utility to cancel {0}-{1} orders and exit'.format(c.BOTsellmarket, c.BOTbuymarket))
-    results = dxbottools.cancelallordersbymarket(c.BOTsellmarket, c.BOTbuymarket)
-    print('>>>> Cancel orders result: {0}'.format(results))
-    return results
+    print('>>>> Using utility to cancel all orders on all markets')
+    retcode, retdata = dxbottools.cancelallorders()
+    print('>>>> Cancel orders result: {0} >> {1}'.format(retcode, retdata))
+    return retcode
+    
+def do_utils_cancel_orders_market():
+    global c, s, d
+    print('>>>> Using utility to cancel specific market pair {0}-{1} orders'.format(c.BOTsellmarket, c.BOTbuymarket))
+    retcode, retdata = dxbottools.cancelallordersbymarket(c.BOTsellmarket, c.BOTbuymarket)
+    print('>>>> Cancel orders result: {0} >> {1}'.format(retcode, retdata))
+    return retcode
+
+# ~ def do_utils_cancel_orders_instance():
+    # ~ global c, s, d
+    # ~ print('>>>> Using utility to cancel all orders that belong to this bot instance market pair {0}-{1}'.format(c.BOTsellmarket, c.BOTbuymarket))
+    
+    # ~ # load saved open orders list that belong this bot instance
+    # ~ TODO
+    
+    # ~ # cancel orders list
+    # ~ retcode, retdata = dxbottools.cancel_orders_list(orders_list)
+    
+    # ~ # deal with return data, maybe partial canceled order list, update stored orders list
+    # ~ TODO
+    
+    # ~ print('>>>> Cancel orders result: {0} >> {1}'.format(retcode, retdata))
+    # ~ return retcode
 
 # do utils and exit
 def do_utils_and_exit():
     global c, s, d
     if c.cancelall:
-        print('>>>> Utility to cancell all orders on all markets was specified and exit')
-        results = dxbottools.cancelallorders()
-        print(results)
-        sys.exit(0)
+        retcode = do_utils_cancel_orders_all()
+        sys.exit(retcode)
     elif c.cancelmarket:
-        do_utils_cancel_market()
-        sys.exit(0)
+        retcode = do_utils_cancel_orders_market()
+        sys.exit(retcode)
+    # ~ elif c_cancelinstance:
+        # ~ retcode = do_utils_cancel_orders_instance()
+        # ~ sys.exit(retcode)
 
 # try to update pricing information
 def pricing_update_main():

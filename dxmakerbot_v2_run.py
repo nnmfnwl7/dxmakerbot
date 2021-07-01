@@ -82,12 +82,13 @@ if __name__ == '__main__':
         # if dxmakerbot process exit with error try to cancel all existing orders
         while 1:
             # cancel all orders
-            print("[I] dxmakerbot crashed, clearing open orders")
+            print("[W] dxmakerbot crashed, clearing open orders")
             result2 = subprocess.run("python3 dxmakerbot_v2.py" + botconfig + " --cancelmarket", shell=True)
             # check if cancel all orders success or try to do it again
             if result2.returncode == 0:
                 break
             # wait a while on error to try again
+            print("[W] dxmakerbot crash >> recovery try >> cancel orders >> internal error >> failed")
             time.sleep(3)
         
         # wait a while
