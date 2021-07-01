@@ -25,51 +25,134 @@ def lookup_order_id(orderid, myorders):
 
 
 def canceloldestorder(maker, taker):
-  myorders = getopenordersbymarket(maker, taker)
-  oldestepoch = 3539451969
-  currentepoch = 0
-  epochlist = 0
-  oldestorderid = 0
-  for z in myorders:
-    if z['status'] == "open":
-      createdat = z['created_at']
-      currentepoch = getepochtime((z['created_at']))
-      if oldestepoch > currentepoch:
-        oldestorderid = z['id']
-        oldestepoch = currentepoch
-      if oldestorderid != 0:
-        rpc_connection.dxCancelOrder(oldestorderid)  
-  return oldestorderid, oldestepoch
+    retcode, myorders = getopenordersbymarket(maker, taker)
+    oldestepoch = 3539451969
+    currentepoch = 0
+    epochlist = 0
+    oldestorderid = 0
+    if retcode == 0:
+        for z in myorders:
+            if z['status'] == "open":
+                createdat = z['created_at']
+                currentepoch = getepochtime((z['created_at']))
+                if oldestepoch > currentepoch:
+                    oldestorderid = z['id']
+                    oldestepoch = currentepoch
+                if oldestorderid != 0:
+                    rpc_connection.dxCancelOrder(oldestorderid)
+    return oldestorderid, oldestepoch
 
+# cancel order specified by list
+def cancel_orders_list(orders_list):
+    
+    retcode = 0
+    
+    # check if input is a list
+    if isinstance(orders_list, list):
+        
+        # for all orders in list
+        for z in orders_list:
+            
+            # get order ID
+            order_id = z.get('id', None)
+            
+            # check if order has an ID
+            if order_id is not None:
+                
+                # try to cancel order
+                results = rpc_connection.dxCancelOrder(order_id)
+                
+                # add cancel order result to result data
+                z['results'] = results
+                
+                # update retcode in case of cancel order errors
+                err = results.get('error', None)
+                if err is not None:
+                    retcode = -2
+                
+                # ~ # print result of actual cancel order try and sleep
+                # ~ print (results)
+                # ~ time.sleep(3.5)
+            else:
+                retcode = -2
+                z['results'] = {}
+                z['results']['error'] = "Order ID does not exist >> id"
+                z['results']['code'] = "9999"
+                z['results']['name'] = "cancel_orders_list"
+    else:
+        retcode = -1
+    
+    if retcode != 0:
+        print('ERROR: cancel orders list >> {0} >> {1}'.format(retcode, orders_list))
+    
+    return retcode, orders_list
+
+# cancel all my open orders
 def cancelallorders():
-  # cancel all my open orders
-  myorders = rpc_connection.dxGetMyOrders()
-  for z in myorders:
-    if z['status'] == "open" or z['status'] == "new":
-      results = rpc_connection.dxCancelOrder(z['id'])
-      time.sleep(3.5)
-      print (results)
-  return
-
-def cancelallordersbymarket(maker, taker):
-  # cancel all my open orders
-  myorders = getopenordersbymarket(maker, taker)
-  for z in myorders:
-    if z['status'] == "open" or z['status'] == "new":
-      results = rpc_connection.dxCancelOrder(z['id'])
-      time.sleep(3.5)
-      print (results)
-  return
-
-def getallmyordersbymarket(maker, taker):
+    
     # returns open orders by market
+    myorders = rpc_connection.dxGetMyOrders()
+    
+    # check if get RPC error not been occurred
+    if isinstance(myorders, list):
+        
+        # filter orders with status open/new
+        retdata = [zz for zz in myorders if (zz['status'] == "open") or zz['status'] == "new"]
+        
+        # try to cancel orders
+        retcode, retdata = cancel_orders_list(retdata)
+    else:
+        retcode = -1
+        retdata = myorders
+    
+    if retcode != 0:
+        print('ERROR: cancel all orders >> {0} >> {1}'.format(retcode, retdata))
+    
+    return retcode, retdata
+
+# cancel all my open orders for specified market pair
+def cancelallordersbymarket(maker, taker):
+    
+    # get all my open orders 
+    retcode, retdata = getopenordersbymarket(maker, taker)
+    
+    if retcode == 0:
+        
+        # filter orders with status open/new
+        retdata = [zz for zz in retdata if (zz['status'] == "open") or (zz['status'] == "new")]
+        
+        # try to cancel orders
+        retcode, retdata = cancel_orders_list(retdata)
+    
+    if retcode != 0:
+        print('ERROR: cancel all orders by market result: {0} >> {1}'.format(retcode, retdata))
+    
+    return retcode, retdata
+
+# returns all my orders for specified market pair
+def getallmyordersbymarket(maker, taker):
     myorders = rpc_connection.dxGetMyOrders()
     return [zz for zz in myorders if (zz['maker'] == maker) and (zz['taker'] == taker)]
 
+# returns all my open orders for specified market pair
 def getopenordersbymarket(maker, taker):
-    # returns open orders by market
+    
+    # get all my orders
     myorders = rpc_connection.dxGetMyOrders()
-    return [zz for zz in myorders if (zz['status'] == "open") and (zz['maker'] == maker) and (zz['taker'] == taker)]
+    
+    # check if get RPC error not been occurred
+    if isinstance(myorders, list):
+        
+        retcode = 0
+        # filter orders which match open/new and specified market
+        myorders = [zz for zz in myorders if ((zz['status'] == "open") or (zz['status'] == "new")) and (zz['maker'] == maker) and (zz['taker'] == taker)]
+    else:
+        retcode = -1
+    
+    if retcode != 0:
+        print('ERROR: get open orders by market  >> {0} >> {1}'.format(retcode, myorders))
+    
+    return retcode, myorders
 
 def getopenordersbymaker(maker):
     # return orders open w/ maker 

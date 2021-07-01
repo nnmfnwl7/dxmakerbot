@@ -49,7 +49,11 @@ except ImportError:
 
 USER_AGENT = "AuthServiceProxy/0.1"
 
-HTTP_TIMEOUT = 30
+# HTTP_TIMEOUT = 30
+# as 30 seconds is too low timeout in compare with most of wallet CLI 
+# has timeout set to 900
+# Chains like LBC(lbry credits) could CLI corner cases ~3 minutes 
+HTTP_TIMEOUT = 210
 
 log = logging.getLogger("BitcoinRPC")
 
